@@ -87,42 +87,12 @@ def actualizar_sistema():
     hubo_cambios = False
 
     # -----------------------------------------------------
-    # 1. COMPLETAR MISIONES AUTOMÁTICAMENTE
+    # 1. CONSULTAR ESTADO REAL EN FLEXSIM
     # -----------------------------------------------------
 
-    # Usamos list() para trabajar sobre una copia,
-    # ya que durante el proceso pueden crearse nuevas misiones.
-    for mision in list(gestor.misiones):
+    if gestor.actualizar_misiones_flexsim():
+        hubo_cambios = True
 
-        if mision.estado.value == "EN_PROCESO":
-
-            # Calculamos cuánto tiempo lleva ejecutándose.
-            tiempo_transcurrido = (
-                datetime.now() - mision.hora_inicio
-            ).total_seconds()
-
-            # En el prototipo una misión dura 5 segundos.
-            # En el sistema real este evento vendría del AGV
-            # o de la simulación cuando llegue al destino.
-            if tiempo_transcurrido >= 5:
-
-                # Completar_mision también revisa si quedaron
-                # solicitudes pendientes que ahora pueden asignarse.
-                resultado = gestor.completar_mision(
-                    mision.id_mision
-                )
-
-                mision_completada, nuevas_misiones = resultado
-
-                # Si al liberar el AGV se asignaron nuevas misiones,
-                # también las iniciamos automáticamente.
-                for nueva_mision in nuevas_misiones:
-
-                    gestor.iniciar_mision(
-                        nueva_mision.id_mision
-                    )
-
-                hubo_cambios = True
 
 
     # -----------------------------------------------------
@@ -342,7 +312,7 @@ with st.form("formulario_solicitud"):
         peso = st.number_input(
             "Peso del pallet (kg)",
             min_value=1,
-            max_value=1000,
+            max_value=800,
             value=500
         )
 
