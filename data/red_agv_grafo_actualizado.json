@@ -9,6 +9,70 @@
       "nombre_amigable": ""
     },
     {
+      "id": "ControlPoint2",
+      "tipo": "punto_control",
+      "x": 53.0015,
+      "y": -123.9551,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint3",
+      "tipo": "punto_control",
+      "x": 52.9384,
+      "y": -117.9146,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint4",
+      "tipo": "punto_control",
+      "x": 52.9431,
+      "y": -110.9415,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint5",
+      "tipo": "punto_control",
+      "x": 52.9562,
+      "y": -103.9617,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint6",
+      "tipo": "punto_control",
+      "x": 52.9263,
+      "y": -96.9568,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint7",
+      "tipo": "punto_control",
+      "x": 72.9975,
+      "y": -132.1957,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint8",
+      "tipo": "punto_control",
+      "x": 73.0693,
+      "y": -116.9948,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint9",
+      "tipo": "punto_control",
+      "x": 81.5905,
+      "y": -132.1458,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
       "id": "ControlPoint10",
       "tipo": "punto_control",
       "x": 81.5155,
@@ -89,14 +153,6 @@
       "nombre_amigable": ""
     },
     {
-      "id": "ControlPoint2",
-      "tipo": "punto_control",
-      "x": 53.0015,
-      "y": -123.9551,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
       "id": "ControlPoint20",
       "tipo": "punto_control",
       "x": 51.9442,
@@ -153,18 +209,18 @@
       "nombre_amigable": ""
     },
     {
-      "id": "ControlPoint29",
+      "id": "ControlPoint27",
       "tipo": "punto_control",
-      "x": 106.1217,
-      "y": -104.1022,
+      "x": 80.0345,
+      "y": -100.0454,
       "z": 0.0,
       "nombre_amigable": ""
     },
     {
-      "id": "ControlPoint3",
+      "id": "ControlPoint29",
       "tipo": "punto_control",
-      "x": 52.9384,
-      "y": -117.9146,
+      "x": 106.1217,
+      "y": -104.1022,
       "z": 0.0,
       "nombre_amigable": ""
     },
@@ -189,54 +245,6 @@
       "tipo": "punto_control",
       "x": 40.2266,
       "y": -36.072,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "ControlPoint4",
-      "tipo": "punto_control",
-      "x": 52.9431,
-      "y": -110.9415,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "ControlPoint5",
-      "tipo": "punto_control",
-      "x": 52.9562,
-      "y": -103.9617,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "ControlPoint6",
-      "tipo": "punto_control",
-      "x": 52.9263,
-      "y": -96.9568,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "ControlPoint7",
-      "tipo": "punto_control",
-      "x": 72.9975,
-      "y": -132.1957,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "ControlPoint8",
-      "tipo": "punto_control",
-      "x": 73.0693,
-      "y": -116.9948,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "ControlPoint9",
-      "tipo": "punto_control",
-      "x": 81.5905,
-      "y": -132.1458,
       "z": 0.0,
       "nombre_amigable": ""
     },
@@ -276,7 +284,7 @@
       "id": "X_Ruta14_3",
       "tipo": "interseccion",
       "x": 37.3321,
-      "y": -110.9415,
+      "y": -103.9616,
       "z": 0.0,
       "nombre_amigable": ""
     },
@@ -284,7 +292,7 @@
       "id": "X_Ruta14_4",
       "tipo": "interseccion",
       "x": 37.3321,
-      "y": -103.9616,
+      "y": -96.9568,
       "z": 0.0,
       "nombre_amigable": ""
     },
@@ -292,7 +300,7 @@
       "id": "X_Ruta14_5",
       "tipo": "interseccion",
       "x": 37.3321,
-      "y": -96.9568,
+      "y": -117.9144,
       "z": 0.0,
       "nombre_amigable": ""
     },
@@ -300,7 +308,7 @@
       "id": "X_Ruta14_6",
       "tipo": "interseccion",
       "x": 37.3321,
-      "y": -117.9144,
+      "y": -131.0303,
       "z": 0.0,
       "nombre_amigable": ""
     },
@@ -308,7 +316,7 @@
       "id": "X_Ruta14_7",
       "tipo": "interseccion",
       "x": 37.3321,
-      "y": -131.0303,
+      "y": -110.9415,
       "z": 0.0,
       "nombre_amigable": ""
     },
@@ -339,21 +347,13 @@
     {
       "id": "X_Ruta16_2",
       "tipo": "interseccion",
-      "x": 67.0262,
-      "y": -110.9415,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "X_Ruta16_3",
-      "tipo": "interseccion",
       "x": 67.0522,
       "y": -93.0687,
       "z": 0.0,
       "nombre_amigable": ""
     },
     {
-      "id": "X_Ruta16_4",
+      "id": "X_Ruta16_3",
       "tipo": "interseccion",
       "x": 67.0364,
       "y": -103.9617,
@@ -361,7 +361,7 @@
       "nombre_amigable": ""
     },
     {
-      "id": "X_Ruta16_5",
+      "id": "X_Ruta16_4",
       "tipo": "interseccion",
       "x": 67.0466,
       "y": -96.9571,
@@ -369,7 +369,7 @@
       "nombre_amigable": ""
     },
     {
-      "id": "X_Ruta16_6",
+      "id": "X_Ruta16_5",
       "tipo": "interseccion",
       "x": 67.0161,
       "y": -117.9147,
@@ -377,7 +377,7 @@
       "nombre_amigable": ""
     },
     {
-      "id": "X_Ruta16_7",
+      "id": "X_Ruta16_6",
       "tipo": "interseccion",
       "x": 66.997,
       "y": -131.0305,
@@ -385,23 +385,15 @@
       "nombre_amigable": ""
     },
     {
+      "id": "X_Ruta16_7",
+      "tipo": "interseccion",
+      "x": 67.0262,
+      "y": -110.9415,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
       "id": "X_Ruta1_1",
-      "tipo": "interseccion",
-      "x": 71.0032,
-      "y": -123.9562,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "X_Ruta1_2",
-      "tipo": "interseccion",
-      "x": 71.0032,
-      "y": -100.0274,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "X_Ruta1_3",
       "tipo": "interseccion",
       "x": 71.0032,
       "y": -92.9692,
@@ -409,15 +401,23 @@
       "nombre_amigable": ""
     },
     {
-      "id": "X_Ruta1_4",
+      "id": "X_Ruta1_2",
       "tipo": "interseccion",
       "x": 71.0032,
-      "y": -83.9276,
+      "y": -108.033,
       "z": 0.0,
       "nombre_amigable": ""
     },
     {
-      "id": "X_Ruta1_5",
+      "id": "X_Ruta1_3",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -123.968,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta1_4",
       "tipo": "interseccion",
       "x": 71.0032,
       "y": -116.9948,
@@ -425,10 +425,34 @@
       "nombre_amigable": ""
     },
     {
+      "id": "X_Ruta1_5",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -132.1957,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
       "id": "X_Ruta1_6",
       "tipo": "interseccion",
       "x": 71.0032,
-      "y": -108.033,
+      "y": -100.0274,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta1_7",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -83.9276,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta1_8",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -136.9739,
       "z": 0.0,
       "nombre_amigable": ""
     },
@@ -461,14 +485,6 @@
       "tipo": "interseccion",
       "x": 106.1115,
       "y": -125.0392,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "X_Ruta2_1",
-      "tipo": "interseccion",
-      "x": 71.0032,
-      "y": -132.1957,
       "z": 0.0,
       "nombre_amigable": ""
     },
@@ -641,14 +657,6 @@
       "nombre_amigable": ""
     },
     {
-      "id": "X_Ruta6_1",
-      "tipo": "interseccion",
-      "x": 82.3675,
-      "y": -132.1458,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
       "id": "X_Ruta7_1",
       "tipo": "interseccion",
       "x": 82.3675,
@@ -659,61 +667,29 @@
     {
       "id": "X_Ruta7_10",
       "tipo": "interseccion",
-      "x": 82.3874,
-      "y": -108.0331,
+      "x": 82.4121,
+      "y": -100.0454,
       "z": 0.0,
       "nombre_amigable": ""
     },
     {
-      "id": "X_Ruta7_2",
+      "id": "X_Ruta7_11",
       "tipo": "interseccion",
-      "x": 82.4015,
-      "y": -90.855,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "X_Ruta7_3",
-      "tipo": "interseccion",
-      "x": 82.3734,
-      "y": -125.0331,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "X_Ruta7_4",
-      "tipo": "interseccion",
-      "x": 82.3749,
-      "y": -123.148,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "X_Ruta7_5",
-      "tipo": "interseccion",
-      "x": 82.38,
-      "y": -117.0099,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "X_Ruta7_6",
-      "tipo": "interseccion",
-      "x": 82.394,
-      "y": -100.0453,
-      "z": 0.0,
-      "nombre_amigable": ""
-    },
-    {
-      "id": "X_Ruta7_7",
-      "tipo": "interseccion",
-      "x": 82.4071,
+      "x": 82.4121,
       "y": -84.1163,
       "z": 0.0,
       "nombre_amigable": ""
     },
     {
-      "id": "X_Ruta7_8",
+      "id": "X_Ruta7_12",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -136.9992,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_2",
       "tipo": "interseccion",
       "x": 82.4121,
       "y": -78.0038,
@@ -721,25 +697,73 @@
       "nombre_amigable": ""
     },
     {
+      "id": "X_Ruta7_3",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -108.0331,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_4",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -123.1481,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_5",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -124.0113,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_6",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -125.0332,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_7",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -117.0099,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_8",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -90.8551,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
       "id": "X_Ruta7_9",
       "tipo": "interseccion",
-      "x": 82.3742,
-      "y": -124.0113,
+      "x": 82.4121,
+      "y": -132.1458,
       "z": 0.0,
       "nombre_amigable": ""
     }
   ],
   "aristas": [
     {
-      "origen": "X_Ruta2_1",
+      "origen": "X_Ruta1_5",
       "destino": "ControlPoint7",
-      "distancia_m": 1.9943,
+      "distancia_m": 2.0654,
       "bidireccional": true,
       "ruta_flexsim": "Ruta2",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta1_5",
+      "origen": "X_Ruta1_4",
       "destino": "ControlPoint8",
       "distancia_m": 2.115,
       "bidireccional": true,
@@ -747,7 +771,7 @@
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta1_2",
+      "origen": "X_Ruta1_6",
       "destino": "ControlPoint11",
       "distancia_m": 2.0753,
       "bidireccional": true,
@@ -755,7 +779,7 @@
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta1_4",
+      "origen": "X_Ruta1_7",
       "destino": "ControlPoint13",
       "distancia_m": 2.2526,
       "bidireccional": true,
@@ -763,7 +787,7 @@
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta7_7",
+      "origen": "X_Ruta7_11",
       "destino": "ControlPoint12",
       "distancia_m": 1.9358,
       "bidireccional": true,
@@ -771,7 +795,15 @@
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta7_5",
+      "origen": "X_Ruta7_10",
+      "destino": "ControlPoint27",
+      "distancia_m": 2.4451,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta9",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_7",
       "destino": "ControlPoint10",
       "distancia_m": 0.9076,
       "bidireccional": true,
@@ -788,14 +820,14 @@
     },
     {
       "origen": "X_Ruta13_1",
-      "destino": "X_Ruta14_7",
+      "destino": "X_Ruta14_6",
       "distancia_m": 5.9477,
       "bidireccional": false,
       "ruta_flexsim": "Ruta14",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta14_7",
+      "origen": "X_Ruta14_6",
       "destino": "X_Ruta14_2",
       "distancia_m": 7.0752,
       "bidireccional": false,
@@ -804,16 +836,24 @@
     },
     {
       "origen": "X_Ruta14_2",
-      "destino": "X_Ruta14_6",
+      "destino": "X_Ruta14_5",
       "distancia_m": 6.0407,
       "bidireccional": false,
       "ruta_flexsim": "Ruta14",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta14_6",
-      "destino": "X_Ruta14_3",
+      "origen": "X_Ruta14_5",
+      "destino": "X_Ruta14_7",
       "distancia_m": 6.9729,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta14",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta14_7",
+      "destino": "X_Ruta14_3",
+      "distancia_m": 6.9799,
       "bidireccional": false,
       "ruta_flexsim": "Ruta14",
       "tipo_ruta": "recta"
@@ -821,21 +861,13 @@
     {
       "origen": "X_Ruta14_3",
       "destino": "X_Ruta14_4",
-      "distancia_m": 6.9799,
-      "bidireccional": false,
-      "ruta_flexsim": "Ruta14",
-      "tipo_ruta": "recta"
-    },
-    {
-      "origen": "X_Ruta14_4",
-      "destino": "X_Ruta14_5",
       "distancia_m": 7.0048,
       "bidireccional": false,
       "ruta_flexsim": "Ruta14",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta14_5",
+      "origen": "X_Ruta14_4",
       "destino": "X_Ruta14_1",
       "distancia_m": 7.8022,
       "bidireccional": false,
@@ -860,46 +892,46 @@
     },
     {
       "origen": "X_Ruta15_1",
-      "destino": "X_Ruta16_3",
+      "destino": "X_Ruta16_2",
       "distancia_m": 3.9111,
       "bidireccional": false,
       "ruta_flexsim": "Ruta16",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta16_3",
-      "destino": "X_Ruta16_5",
+      "origen": "X_Ruta16_2",
+      "destino": "X_Ruta16_4",
       "distancia_m": 3.8884,
       "bidireccional": false,
       "ruta_flexsim": "Ruta16",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta16_5",
-      "destino": "X_Ruta16_4",
+      "origen": "X_Ruta16_4",
+      "destino": "X_Ruta16_3",
       "distancia_m": 7.0047,
       "bidireccional": false,
       "ruta_flexsim": "Ruta16",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta16_4",
-      "destino": "X_Ruta16_2",
+      "origen": "X_Ruta16_3",
+      "destino": "X_Ruta16_7",
       "distancia_m": 6.9798,
       "bidireccional": false,
       "ruta_flexsim": "Ruta16",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta16_2",
-      "destino": "X_Ruta16_6",
+      "origen": "X_Ruta16_7",
+      "destino": "X_Ruta16_5",
       "distancia_m": 6.9731,
       "bidireccional": false,
       "ruta_flexsim": "Ruta16",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta16_6",
+      "origen": "X_Ruta16_5",
       "destino": "X_Ruta16_1",
       "distancia_m": 6.0534,
       "bidireccional": false,
@@ -908,26 +940,18 @@
     },
     {
       "origen": "X_Ruta16_1",
-      "destino": "X_Ruta16_7",
+      "destino": "X_Ruta16_6",
       "distancia_m": 7.0625,
       "bidireccional": false,
       "ruta_flexsim": "Ruta16",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta16_7",
+      "origen": "X_Ruta16_6",
       "destino": "X_Ruta13_2",
       "distancia_m": 5.9824,
       "bidireccional": false,
       "ruta_flexsim": "Ruta16",
-      "tipo_ruta": "recta"
-    },
-    {
-      "origen": "X_Ruta1_1",
-      "destino": "X_Ruta16_1",
-      "distancia_m": 3.8961,
-      "bidireccional": true,
-      "ruta_flexsim": "Ruta11",
       "tipo_ruta": "recta"
     },
     {
@@ -947,7 +971,7 @@
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta16_2",
+      "origen": "X_Ruta16_7",
       "destino": "ControlPoint4",
       "distancia_m": 14.0504,
       "bidireccional": false,
@@ -956,22 +980,22 @@
     },
     {
       "origen": "ControlPoint4",
-      "destino": "X_Ruta14_3",
+      "destino": "X_Ruta14_7",
       "distancia_m": 15.6109,
       "bidireccional": false,
       "ruta_flexsim": "Ruta19",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta16_3",
-      "destino": "X_Ruta1_3",
+      "origen": "X_Ruta16_2",
+      "destino": "X_Ruta1_1",
       "distancia_m": 4.0434,
       "bidireccional": true,
       "ruta_flexsim": "Ruta21",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta16_5",
+      "origen": "X_Ruta16_4",
       "destino": "ControlPoint6",
       "distancia_m": 13.9405,
       "bidireccional": false,
@@ -980,14 +1004,14 @@
     },
     {
       "origen": "ControlPoint6",
-      "destino": "X_Ruta14_5",
+      "destino": "X_Ruta14_4",
       "distancia_m": 15.5942,
       "bidireccional": false,
       "ruta_flexsim": "Ruta22",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta14_4",
+      "origen": "X_Ruta14_3",
       "destino": "ControlPoint5",
       "distancia_m": 15.7475,
       "bidireccional": false,
@@ -996,14 +1020,14 @@
     },
     {
       "origen": "ControlPoint5",
-      "destino": "X_Ruta16_4",
+      "destino": "X_Ruta16_3",
       "distancia_m": 14.0802,
       "bidireccional": false,
       "ruta_flexsim": "Ruta20",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta14_6",
+      "origen": "X_Ruta14_5",
       "destino": "ControlPoint3",
       "distancia_m": 15.7066,
       "bidireccional": false,
@@ -1012,14 +1036,14 @@
     },
     {
       "origen": "ControlPoint3",
-      "destino": "X_Ruta16_6",
+      "destino": "X_Ruta16_5",
       "distancia_m": 14.0777,
       "bidireccional": false,
       "ruta_flexsim": "Ruta18",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta14_7",
+      "origen": "X_Ruta14_6",
       "destino": "ControlPoint1",
       "distancia_m": 15.7643,
       "bidireccional": false,
@@ -1028,7 +1052,7 @@
     },
     {
       "origen": "ControlPoint1",
-      "destino": "X_Ruta16_7",
+      "destino": "X_Ruta16_6",
       "distancia_m": 14.066,
       "bidireccional": false,
       "ruta_flexsim": "Ruta17",
@@ -1036,7 +1060,7 @@
     },
     {
       "origen": "X_Ruta7_1",
-      "destino": "X_Ruta1_3",
+      "destino": "X_Ruta1_1",
       "distancia_m": 11.5064,
       "bidireccional": false,
       "ruta_flexsim": "Ruta25",
@@ -1044,22 +1068,22 @@
     },
     {
       "origen": "X_Ruta26_1",
-      "destino": "X_Ruta7_8",
+      "destino": "X_Ruta7_2",
       "distancia_m": 11.4954,
       "bidireccional": false,
       "ruta_flexsim": "Ruta26",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta6_1",
+      "origen": "X_Ruta7_9",
       "destino": "ControlPoint9",
-      "distancia_m": 0.777,
+      "distancia_m": 0.8665,
       "bidireccional": true,
       "ruta_flexsim": "Ruta6",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta7_3",
+      "origen": "X_Ruta7_6",
       "destino": "ControlPoint14",
       "distancia_m": 17.7682,
       "bidireccional": false,
@@ -1236,48 +1260,24 @@
     },
     {
       "origen": "X_Ruta40_1",
-      "destino": "X_Ruta7_2",
+      "destino": "X_Ruta7_8",
       "distancia_m": 10.979,
       "bidireccional": false,
       "ruta_flexsim": "Ruta41",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta2_1",
-      "destino": "X_Ruta1_1",
-      "distancia_m": 8.2364,
-      "bidireccional": false,
-      "ruta_flexsim": "Ruta1",
-      "tipo_ruta": "recta"
-    },
-    {
-      "origen": "X_Ruta1_1",
+      "origen": "X_Ruta1_8",
       "destino": "X_Ruta1_5",
-      "distancia_m": 6.9614,
+      "distancia_m": 4.7782,
       "bidireccional": false,
       "ruta_flexsim": "Ruta1",
       "tipo_ruta": "recta"
     },
     {
       "origen": "X_Ruta1_5",
-      "destino": "X_Ruta1_6",
-      "distancia_m": 8.9619,
-      "bidireccional": false,
-      "ruta_flexsim": "Ruta1",
-      "tipo_ruta": "recta"
-    },
-    {
-      "origen": "X_Ruta1_6",
-      "destino": "X_Ruta1_2",
-      "distancia_m": 8.0056,
-      "bidireccional": false,
-      "ruta_flexsim": "Ruta1",
-      "tipo_ruta": "recta"
-    },
-    {
-      "origen": "X_Ruta1_2",
       "destino": "X_Ruta1_3",
-      "distancia_m": 7.0582,
+      "distancia_m": 8.2276,
       "bidireccional": false,
       "ruta_flexsim": "Ruta1",
       "tipo_ruta": "recta"
@@ -1285,13 +1285,45 @@
     {
       "origen": "X_Ruta1_3",
       "destino": "X_Ruta1_4",
-      "distancia_m": 9.0416,
+      "distancia_m": 6.9732,
       "bidireccional": false,
       "ruta_flexsim": "Ruta1",
       "tipo_ruta": "recta"
     },
     {
       "origen": "X_Ruta1_4",
+      "destino": "X_Ruta1_2",
+      "distancia_m": 8.9619,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_2",
+      "destino": "X_Ruta1_6",
+      "distancia_m": 8.0056,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_6",
+      "destino": "X_Ruta1_1",
+      "distancia_m": 7.0582,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_1",
+      "destino": "X_Ruta1_7",
+      "distancia_m": 9.0416,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_7",
       "destino": "X_Ruta26_1",
       "distancia_m": 5.9045,
       "bidireccional": false,
@@ -1299,23 +1331,23 @@
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta7_8",
-      "destino": "X_Ruta7_7",
+      "origen": "X_Ruta7_2",
+      "destino": "X_Ruta7_11",
       "distancia_m": 6.1125,
       "bidireccional": false,
       "ruta_flexsim": "Ruta7",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta7_7",
-      "destino": "X_Ruta7_2",
-      "distancia_m": 6.7387,
+      "origen": "X_Ruta7_11",
+      "destino": "X_Ruta7_8",
+      "distancia_m": 6.7388,
       "bidireccional": false,
       "ruta_flexsim": "Ruta7",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta7_2",
+      "origen": "X_Ruta7_8",
       "destino": "X_Ruta7_1",
       "distancia_m": 2.0994,
       "bidireccional": false,
@@ -1324,56 +1356,64 @@
     },
     {
       "origen": "X_Ruta7_1",
-      "destino": "X_Ruta7_6",
+      "destino": "X_Ruta7_10",
       "distancia_m": 7.0909,
       "bidireccional": false,
       "ruta_flexsim": "Ruta7",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta7_6",
-      "destino": "X_Ruta7_10",
-      "distancia_m": 7.9878,
-      "bidireccional": false,
-      "ruta_flexsim": "Ruta7",
-      "tipo_ruta": "recta"
-    },
-    {
       "origen": "X_Ruta7_10",
-      "destino": "X_Ruta7_5",
-      "distancia_m": 8.9768,
-      "bidireccional": false,
-      "ruta_flexsim": "Ruta7",
-      "tipo_ruta": "recta"
-    },
-    {
-      "origen": "X_Ruta7_5",
-      "destino": "X_Ruta7_4",
-      "distancia_m": 6.1381,
-      "bidireccional": false,
-      "ruta_flexsim": "Ruta7",
-      "tipo_ruta": "recta"
-    },
-    {
-      "origen": "X_Ruta7_4",
-      "destino": "X_Ruta7_9",
-      "distancia_m": 0.8633,
-      "bidireccional": false,
-      "ruta_flexsim": "Ruta7",
-      "tipo_ruta": "recta"
-    },
-    {
-      "origen": "X_Ruta7_9",
       "destino": "X_Ruta7_3",
-      "distancia_m": 1.0219,
+      "distancia_m": 7.9877,
       "bidireccional": false,
       "ruta_flexsim": "Ruta7",
       "tipo_ruta": "recta"
     },
     {
       "origen": "X_Ruta7_3",
-      "destino": "X_Ruta6_1",
-      "distancia_m": 7.1126,
+      "destino": "X_Ruta7_7",
+      "distancia_m": 8.9768,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_7",
+      "destino": "X_Ruta7_4",
+      "distancia_m": 6.1382,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_4",
+      "destino": "X_Ruta7_5",
+      "distancia_m": 0.8632,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_5",
+      "destino": "X_Ruta7_6",
+      "distancia_m": 1.022,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_6",
+      "destino": "X_Ruta7_9",
+      "distancia_m": 7.1125,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_9",
+      "destino": "X_Ruta7_12",
+      "distancia_m": 4.8534,
       "bidireccional": false,
       "ruta_flexsim": "Ruta7",
       "tipo_ruta": "recta"
@@ -1508,7 +1548,7 @@
     },
     {
       "origen": "X_Ruta49_1",
-      "destino": "X_Ruta7_8",
+      "destino": "X_Ruta7_2",
       "distancia_m": 3.9962,
       "bidireccional": false,
       "ruta_flexsim": "Ruta49",
@@ -1555,19 +1595,35 @@
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta7_9",
-      "destino": "X_Ruta1_1",
+      "origen": "X_Ruta7_5",
+      "destino": "X_Ruta1_3",
       "distancia_m": 11.4709,
       "bidireccional": false,
       "ruta_flexsim": "Ruta23",
       "tipo_ruta": "recta"
     },
     {
-      "origen": "X_Ruta1_6",
-      "destino": "X_Ruta7_10",
+      "origen": "X_Ruta1_2",
+      "destino": "X_Ruta7_3",
       "distancia_m": 11.4498,
       "bidireccional": false,
       "ruta_flexsim": "Ruta24",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_12",
+      "destino": "X_Ruta1_8",
+      "distancia_m": 11.3778,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta11",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_3",
+      "destino": "X_Ruta16_1",
+      "distancia_m": 3.9399,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta51",
       "tipo_ruta": "recta"
     }
   ]

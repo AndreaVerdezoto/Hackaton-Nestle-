@@ -29,8 +29,19 @@ class FlexSimCliente:
 
         return self.enviar_comando(comando)
 
-    def ejecutar_mision(self, id_agv, origen, destino):
-        comando = f"MISION|{id_agv}|{origen}|{destino}"
+    def ejecutar_mision(
+        self,
+        id_agv,
+        origen,
+        destino,
+        id_pallet,
+        estacion_origen,
+        estacion_destino
+    ):
+        comando = (
+            f"MISION|{id_agv}|{origen}|{destino}|"
+            f"{id_pallet}|{estacion_origen}|{estacion_destino}"
+        )
 
         return self.enviar_comando(comando)
 

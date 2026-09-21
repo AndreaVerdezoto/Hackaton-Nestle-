@@ -12,13 +12,31 @@ from app.services.flexsim_cliente import FlexSimCliente
 class GestorFlota:
     MAPEO_UBICACIONES = {
         "ALMACEN": "ControlPoint7",
+
         "TRANSIT_4": "ControlPoint7",
         "TRANSIT_3": "ControlPoint8",
         "TRANSIT_2": "ControlPoint11",
         "TRANSIT_1": "ControlPoint13",
-        "LINEA_1": "ControlPoint23",   # Cookies
-        "LINEA_2": "ControlPoint19",   # Chocolate
-        "LINEA_3": "ControlPoint10",   # Wafer
+
+        "COOKIE_1": "ControlPoint26",
+        "COOKIE_2": "ControlPoint25",
+        "COOKIE_3": "ControlPoint24",
+
+        "CHOCOLATE": "ControlPoint18",
+
+        "WAFER": "ControlPoint15",
+    }
+
+    MAPEO_ESTACIONES = {
+        "ALMACEN": "pallet_transit4",
+
+        "COOKIE_1": "fin_linea_cookie_1",
+        "COOKIE_2": "fin_linea_cookie_2",
+        "COOKIE_3": "fin_linea_cookie_3",
+
+        "CHOCOLATE": "fin_linea_chocolate",
+
+        "WAFER": "fin_linea_wafer",
     }
 
     MAPEO_AGVS = {
@@ -402,11 +420,22 @@ class GestorFlota:
             mision.solicitud.destino
         )
 
+        estacion_origen = self.MAPEO_ESTACIONES[
+            mision.solicitud.origen
+        ]
+
+        estacion_destino = self.MAPEO_ESTACIONES[
+            mision.solicitud.destino
+        ]
+
         try:
             respuesta = self.flexsim.ejecutar_mision(
                 agv_flexsim,
                 origen,
                 destino,
+                mision.solicitud.id_pallet,
+                estacion_origen,
+                estacion_destino,
             )
 
         except OSError:
@@ -415,7 +444,7 @@ class GestorFlota:
             )
 
             mision.agv.estado = (
-                EstadoAGV.DISPONIBLE
+            EstadoAGV.DISPONIBLE
             )
 
             mision.agv.mision_actual = None

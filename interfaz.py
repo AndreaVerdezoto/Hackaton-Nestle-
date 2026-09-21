@@ -280,12 +280,74 @@ st.write(
 )
 
 
-# Utilizamos un formulario para que Streamlit no procese
-# la solicitud hasta que se presione el botón.
+# ---------------------------------------------------------
+# SELECCIÓN DEL PRODUCTO Y TIPO DE TRASLADO
+# ---------------------------------------------------------
+
+producto = st.selectbox(
+    "Producto",
+    [
+        "Cookies",
+        "Chocolate",
+        "Wafer"
+    ]
+)
+
+tipo_traslado = st.selectbox(
+    "Tipo de traslado",
+    [
+        "Suministro a producción",
+        "Producto terminado a almacén"
+    ]
+)
+
+
+# Líneas disponibles para cada producto.
+destinos_por_producto = {
+    "Cookies": [
+        "COOKIE_1",
+        "COOKIE_2",
+        "COOKIE_3"
+    ],
+    "Chocolate": [
+        "CHOCOLATE"
+    ],
+    "Wafer": [
+        "WAFER"
+    ]
+}
+
+
+# Obtenemos las líneas correspondientes
+# al producto seleccionado.
+lineas_producto = destinos_por_producto[producto]
+
+
+# Dependiendo del tipo de traslado,
+# definimos origen y destino.
+if tipo_traslado == "Suministro a producción":
+
+    origenes_disponibles = [
+        "ALMACEN"
+    ]
+
+    destinos_disponibles = lineas_producto
+
+else:
+
+    origenes_disponibles = lineas_producto
+
+    destinos_disponibles = [
+        "ALMACEN"
+    ]
+
+
+# ---------------------------------------------------------
+# FORMULARIO DE SOLICITUD
+# ---------------------------------------------------------
+
 with st.form("formulario_solicitud"):
 
-    # Dividimos los campos en dos columnas para aprovechar
-    # mejor el espacio de la interfaz.
     col1, col2 = st.columns(2)
 
     with col1:
@@ -300,15 +362,6 @@ with st.form("formulario_solicitud"):
             value=f"PALLET_{len(gestor.solicitudes) + 1:03d}"
         )
 
-        producto = st.selectbox(
-            "Producto",
-            [
-                "Cookies",
-                "Chocolate",
-                "Wafer"
-            ]
-        )
-
         peso = st.number_input(
             "Peso del pallet (kg)",
             min_value=1,
@@ -319,24 +372,14 @@ with st.form("formulario_solicitud"):
 
     with col2:
 
-        # Por ahora el prototipo considera que los pallets
-        # salen desde la zona de almacenamiento.
         origen = st.selectbox(
             "Origen",
-            [
-                "ALMACEN"
-            ]
+            origenes_disponibles
         )
 
-        # Las líneas disponibles corresponden a las zonas
-        # productivas representadas en nuestro grafo.
         destino = st.selectbox(
             "Destino",
-            [
-                "LINEA_1",
-                "LINEA_2",
-                "LINEA_3"
-            ]
+            destinos_disponibles
         )
 
         prioridad_texto = st.selectbox(
@@ -349,11 +392,9 @@ with st.form("formulario_solicitud"):
         )
 
 
-    # Este botón únicamente existe dentro del formulario.
     registrar = st.form_submit_button(
         "Registrar solicitud"
     )
-
 
 # ---------------------------------------------------------
 # PROCESAMIENTO DEL FORMULARIO
