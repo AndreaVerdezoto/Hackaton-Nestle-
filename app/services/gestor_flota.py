@@ -17,32 +17,45 @@ class GestorFlota:
         "TRANSIT_3": "ControlPoint8",
         "TRANSIT_2": "ControlPoint11",
         "TRANSIT_1": "ControlPoint13",
+    }
 
-        "COOKIE_1": "ControlPoint26",
+    NODOS_SUMINISTRO = {
+        "COOKIE_1": "ControlPoint23",
+        "COOKIE_2": "ControlPoint21",
+        "COOKIE_3": "ControlPoint22",
+        "CHOCOLATE": "ControlPoint17",
+        "WAFER": "ControlPoint14",
+    }
+
+    NODOS_PRODUCTO_TERMINADO = {
+        "COOKIE_1": "ControlPoint24",
         "COOKIE_2": "ControlPoint25",
-        "COOKIE_3": "ControlPoint24",
-
+        "COOKIE_3": "ControlPoint26",
         "CHOCOLATE": "ControlPoint18",
-
         "WAFER": "ControlPoint15",
     }
 
-    MAPEO_ESTACIONES = {
-        "ALMACEN": "pallet_transit4",
-
-        "COOKIE_1": "fin_linea_cookie_1",
-        "COOKIE_2": "fin_linea_cookie_2",
-        "COOKIE_3": "fin_linea_cookie_3",
-
-        "CHOCOLATE": "fin_linea_chocolate",
-
-        "WAFER": "fin_linea_wafer",
-    }
+    ESTACION_ALMACEN = "pallet_transit4"
 
     MAPEO_AGVS = {
         "AGV_01": "agv_01",
         "AGV_02": "agv_02",
         "AGV_03": "agv_03",
+    }
+    ESTACIONES_SUMINISTRO = {
+        "COOKIE_1": "entrada_material_cookie_1",
+        "COOKIE_2": "entrada_material_cookie_2",
+        "COOKIE_3": "entrada_material_cookie_3",
+        "CHOCOLATE": "entrada_material_chocolate",
+        "WAFER": "entrada_material_wafer",
+    }
+
+    ESTACIONES_PRODUCTO_TERMINADO = {
+        "COOKIE_1": "fin_linea_cookie_1",
+        "COOKIE_2": "fin_linea_cookie_2",
+        "COOKIE_3": "fin_linea_cookie_3",
+        "CHOCOLATE": "fin_linea_chocolate",
+        "WAFER": "fin_linea_wafer",
     }
 
     def __init__(self):
@@ -53,6 +66,31 @@ class GestorFlota:
         self.flexsim = FlexSimCliente()
 
         self.construir_red()
+
+    def resolver_nodos_solicitud(self, solicitud):
+
+        # SUMINISTRO: almacén -> entrada de la línea
+        if solicitud.origen == "ALMACEN":
+            origen = self.resolver_nodo("ALMACEN")
+
+            destino = self.NODOS_SUMINISTRO[
+                solicitud.destino
+            ]
+
+        # PRODUCTO TERMINADO: salida de la línea -> almacén
+        elif solicitud.destino == "ALMACEN":
+            origen = self.NODOS_PRODUCTO_TERMINADO[
+                solicitud.origen
+            ]
+
+            destino = self.resolver_nodo("ALMACEN")
+
+        else:
+            raise ValueError(
+                "La solicitud debe iniciar o terminar en ALMACEN."
+            )
+
+        return origen, destino
 
     # ---------------------------------------------------------
     # RED / GRAFO
@@ -216,14 +254,18 @@ class GestorFlota:
         agv,
         solicitud
     ):
+        origen_mision, destino_mision = (
+            self.resolver_nodos_solicitud(solicitud)
+        )
+
         distancia_agv_origen = self.obtener_distancia(
             agv.ubicacion,
-            solicitud.origen
+            origen_mision
         )
 
         distancia_origen_destino = self.obtener_distancia(
-            solicitud.origen,
-            solicitud.destino
+            origen_mision,
+            destino_mision
         )
 
         return (
@@ -412,21 +454,40 @@ class GestorFlota:
             mision.agv.id_agv
         )
 
-        origen = self.resolver_nodo(
-            mision.solicitud.origen
+        origen, destino = self.resolver_nodos_solicitud(
+            mision.solicitud
         )
 
-        destino = self.resolver_nodo(
-            mision.solicitud.destino
+
+        # SUMINISTRO: almacén -> línea
+        if mision.solicitud.origen == "ALMACEN":
+            estacion_origen = self.ESTACION_ALMACEN
+
+            estacion_destino = self.ESTACIONES_SUMINISTRO[
+                mision.solicitud.destino
+            ]
+
+        # PRODUCTO TERMINADO: línea -> almacén
+        elif mision.solicitud.destino == "ALMACEN":
+            estacion_origen = self.ESTACIONES_PRODUCTO_TERMINADO[
+                mision.solicitud.origen
+            ]
+
+            estacion_destino = self.ESTACION_ALMACEN
+
+        else:
+            raise ValueError(
+                "La misión debe iniciar o terminar en ALMACEN."
+            )
+        print(
+            "MISION ENVIADA:",
+            agv_flexsim,
+            origen,
+            destino,
+            mision.solicitud.id_pallet,
+            estacion_origen,
+            estacion_destino
         )
-
-        estacion_origen = self.MAPEO_ESTACIONES[
-            mision.solicitud.origen
-        ]
-
-        estacion_destino = self.MAPEO_ESTACIONES[
-            mision.solicitud.destino
-        ]
 
         try:
             respuesta = self.flexsim.ejecutar_mision(
@@ -444,7 +505,7 @@ class GestorFlota:
             )
 
             mision.agv.estado = (
-            EstadoAGV.DISPONIBLE
+                EstadoAGV.DISPONIBLE
             )
 
             mision.agv.mision_actual = None
@@ -550,6 +611,12 @@ class GestorFlota:
         )
 
         mision.completar()
+
+        _, destino_fisico = self.resolver_nodos_solicitud(
+            mision.solicitud
+        )
+
+        mision.agv.ubicacion = destino_fisico
 
         mision.agv.consumir_bateria(
             distancia
