@@ -27,7 +27,12 @@ class SolicitudTraslado:
         peso,
         origen,
         destino,
-        prioridad=PrioridadSolicitud.NORMAL
+        prioridad=PrioridadSolicitud.NORMAL,
+        estacion_origen=None,
+        estacion_destino=None,
+        id_ciclo=None,
+        agv_reservado=None,
+        distancia_retorno=0.0,
     ):
         if peso <= 0:
             raise ValueError("El peso del pallet debe ser mayor que 0.")
@@ -45,6 +50,12 @@ class SolicitudTraslado:
         self.origen = origen
         self.destino = destino
         self.prioridad = prioridad
+        # Opcionales: las solicitudes manuales conservan sus mapeos actuales.
+        self.estacion_origen = estacion_origen
+        self.estacion_destino = estacion_destino
+        self.id_ciclo = id_ciclo
+        self.agv_reservado = agv_reservado
+        self.distancia_retorno = distancia_retorno
 
         self.estado = EstadoSolicitud.PENDIENTE
         self.fecha_creacion = datetime.now()

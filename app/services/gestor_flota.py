@@ -41,6 +41,8 @@ class GestorFlota:
         "AGV_01": "agv_01",
         "AGV_02": "agv_02",
         "AGV_03": "agv_03",
+        "AGV_04": "agv_04",
+        "AGV_05": "agv_05",
     }
     ESTACIONES_SUMINISTRO = {
         "COOKIE_1": "entrada_material_cookie_1",
@@ -58,12 +60,17 @@ class GestorFlota:
         "WAFER": "fin_linea_wafer",
     }
 
-    def __init__(self):
+    def __init__(self, habilitar_flexsim=True):
         self.agvs = []
         self.solicitudes = []
         self.misiones = []
         self.grafo = {}
-        self.flexsim = FlexSimCliente()
+        self.flexsim = FlexSimCliente() if habilitar_flexsim else None
+        self.agvs_activos = None  # None conserva el comportamiento manual.
+        self.asignacion_automatica = True
+        self.observador_misiones = None
+        self.ahora = datetime.now
+        self.reservas_ciclo = {}  # AGV -> ciclo; abarca ambas piernas y su transición.
 
         self.construir_red()
 
@@ -154,6 +161,19 @@ class GestorFlota:
     def registrar_agv(self, agv):
         self.agvs.append(agv)
 
+    def configurar_flota_activa(self, cantidad):
+        if cantidad not in (2, 3, 4, 5):
+            raise ValueError("La flota activa debe ser 2, 3, 4 o 5.")
+        activos = {f"AGV_{i:02d}" for i in range(1, cantidad + 1)}
+        if not activos <= {agv.id_agv for agv in self.agvs}:
+            raise ValueError("Faltan AGV registrados con ubicación inicial conocida.")
+        if self.reservas_ciclo or any(a.mision_actual is not None for a in self.agvs):
+            raise ValueError("No se puede cambiar la flota con misiones reservadas o activas.")
+        self.agvs_activos = activos
+
+    def agv_activo(self, agv):
+        return self.agvs_activos is None or agv.id_agv in self.agvs_activos
+
     def registrar_solicitud(self, solicitud):
         self.solicitudes.append(solicitud)
 
@@ -169,7 +189,7 @@ class GestorFlota:
         }
 
         minutos = (
-            datetime.now() - solicitud.fecha_creacion
+            self.ahora() - solicitud.fecha_creacion
         ).total_seconds() / 60
 
         return puntos[solicitud.prioridad] + minutos
@@ -306,7 +326,20 @@ class GestorFlota:
         for agv in self.agvs:
 
             # Solo AGV disponibles.
-            if not agv.esta_disponible():
+            if not self.agv_activo(agv):
+                continue
+            reserva = self.reservas_ciclo.get(agv.id_agv)
+            retorno_reservado = (
+                reserva is not None and reserva == solicitud.id_ciclo
+                and solicitud.agv_reservado == agv.id_agv
+            )
+            if solicitud.agv_reservado and not retorno_reservado:
+                continue
+            if reserva is not None and not retorno_reservado:
+                continue
+            if agv.mision_actual is not None:
+                continue
+            if not agv.esta_disponible() and not (retorno_reservado and agv.estado == EstadoAGV.ASIGNADO):
                 continue
 
             # Debe existir físicamente en FlexSim.
@@ -333,7 +366,7 @@ class GestorFlota:
 
             # Comprobamos autonomía/batería.
             if not agv.puede_completar_mision(
-                distancia
+                distancia + solicitud.distancia_retorno
             ):
                 continue
 
@@ -393,6 +426,8 @@ class GestorFlota:
         )
 
         agv.mision_actual = mision
+        if solicitud.id_ciclo is not None:
+            self.reservas_ciclo[agv.id_agv] = solicitud.id_ciclo
 
         self.misiones.append(
             mision
@@ -450,6 +485,9 @@ class GestorFlota:
         if mision is None:
             return None
 
+        if mision.estado.value != "CREADA":
+            return mision
+
         agv_flexsim = self.resolver_agv_flexsim(
             mision.agv.id_agv
         )
@@ -479,6 +517,8 @@ class GestorFlota:
             raise ValueError(
                 "La misión debe iniciar o terminar en ALMACEN."
             )
+        estacion_origen = mision.solicitud.estacion_origen or estacion_origen
+        estacion_destino = mision.solicitud.estacion_destino or estacion_destino
         print(
             "MISION ENVIADA:",
             agv_flexsim,
@@ -500,6 +540,9 @@ class GestorFlota:
             )
 
         except OSError:
+            if self.observador_misiones is not None:
+                # En escenario una respuesta perdida es ambigua: no liberar ni reenviar.
+                raise
             mision.solicitud.estado = (
                 EstadoSolicitud.PENDIENTE
             )
@@ -516,7 +559,9 @@ class GestorFlota:
 
             raise
 
-        if not respuesta.startswith("OK"):
+        if respuesta != "OK|MISION_INICIADA":
+            if self.observador_misiones is not None:
+                raise RuntimeError(f"Respuesta de misión no confirmada: {respuesta}")
             mision.solicitud.estado = (
                 EstadoSolicitud.PENDIENTE
             )
@@ -536,6 +581,8 @@ class GestorFlota:
             )
 
         mision.iniciar()
+        if self.observador_misiones is not None:
+            self.observador_misiones("iniciada", mision)
 
         return mision
 
@@ -566,6 +613,13 @@ class GestorFlota:
                 )
 
             except OSError:
+                if self.observador_misiones is not None:
+                    raise
+                continue
+
+            if respuesta not in ("OK|LIBRE", "OK|OCUPADO"):
+                if self.observador_misiones is not None:
+                    raise RuntimeError(f"Estado de FlexSim no válido: {respuesta}")
                 continue
 
             if respuesta == "OK|LIBRE":
@@ -621,8 +675,13 @@ class GestorFlota:
         mision.agv.consumir_bateria(
             distancia
         )
+        if mision.agv.id_agv in self.reservas_ciclo:
+            mision.agv.estado = EstadoAGV.ASIGNADO
+        if self.observador_misiones is not None:
+            self.observador_misiones("completada", mision)
 
-        if mision.agv.necesita_recarga():
+        if (mision.agv.necesita_recarga() and mision.agv.mision_actual is None
+                and mision.agv.id_agv not in self.reservas_ciclo):
             mision.agv.estado = (
                 EstadoAGV.CARGANDO
             )
@@ -632,7 +691,7 @@ class GestorFlota:
             )
 
         nuevas_misiones = (
-            self.procesar_solicitudes_pendientes()
+            self.procesar_solicitudes_pendientes() if self.asignacion_automatica else []
         )
 
         return (
@@ -688,7 +747,7 @@ class GestorFlota:
             agv.hora_inicio_recarga = None
 
             nuevas_misiones = (
-                self.procesar_solicitudes_pendientes()
+                self.procesar_solicitudes_pendientes() if self.asignacion_automatica else []
             )
 
             return (
