@@ -13,17 +13,18 @@ def cambiar_modo():
         escenario.detener()  # Cierra solo el seguimiento Python; no envía TCP.
 
 
-analisis, visual, demo = st.tabs(["Análisis de flota", "Simulación 2D", "Demo FlexSim"],
-                         key="modo_principal", on_change=cambiar_modo)
-if analisis.open:
+st.session_state.setdefault("modo_principal", "Análisis de flota")
+
+analisis, visual, demo = st.tabs(["Análisis de flota", "Simulación 2D", "Demo FlexSim"])
+if st.session_state.modo_principal == "Análisis de flota":
     with analisis:
         from app.ui.analisis_panel import mostrar_analisis
         mostrar_analisis()
-if visual.open:
+if st.session_state.modo_principal == "Simulación 2D":
     with visual:
         from app.ui.simulacion_2d import mostrar_2d
         mostrar_2d()
-if demo.open:
+if st.session_state.modo_principal == "Demo FlexSim":
     with demo:
         st.info("Este modo permite validar visualmente que Python puede controlar los AGV en FlexSim. "
                 "No interviene en el cálculo del dimensionamiento presentado en la pestaña Análisis de flota.")
@@ -31,3 +32,6 @@ if demo.open:
         st.caption("Al cambiar a Análisis se cierra la corrida demo activa. Las misiones físicas ya enviadas pueden continuar.")
         from app.ui.demo_panel import mostrar_demo
         mostrar_demo()
+
+from app.ui.nestor_panel import mostrar_nestor_flotante
+mostrar_nestor_flotante()
