@@ -149,7 +149,7 @@ class SimuladorFlota:
             }
         return self._rutas[clave]
 
-    def ejecutar(self, cantidad_agv):
+    def ejecutar(self, cantidad_agv, *, simular_bateria=False, cargadores=()):
         if type(cantidad_agv) is not int or cantidad_agv not in (2, 3, 4, 5):
             raise ValueError("Seleccione una flota de 2, 3, 4 o 5 AGV.")
         p = self.parametros
@@ -166,6 +166,29 @@ class SimuladorFlota:
             nonlocal secuencia
             secuencia += 1
             heapq.heappush(eventos, (t, 1 if tipo == "llegada" else 0, secuencia, tipo, identificador))
+
+        bateria = None
+        cargadores_no_utilizables = []
+        if simular_bateria:
+            from app.services.bateria_flota import BateriaFlota
+            utilizables = []
+            for nodo in cargadores:
+                try:
+                    self.trayecto(p.ubicacion_inicial, nodo)
+                    self.trayecto(nodo, "ControlPoint7")
+                    for c in self.demanda:
+                        self.trayecto(nodo, self.extremos(c)[0])
+                except ValueError:
+                    cargadores_no_utilizables.append(nodo)
+                else:
+                    utilizables.append(nodo)
+            bateria = BateriaFlota(vehiculos, utilizables, self.trayecto, programar)
+
+        def servicio(c, agv):
+            origen, destino = self.extremos(c)
+            return (self.trayecto(vehiculos[agv]["posicion"], origen)["tiempo_s"] +
+                    self.trayecto(origen, destino)["tiempo_s"] + p.tiempo_carga_s + p.tiempo_descarga_s +
+                    (p.espera_disponibilidad_retorno_s if c.tipo == "producto_terminado" else 0))
 
         def iniciar(c, agv):
             numero = c.id_mision
@@ -186,6 +209,9 @@ class SimuladorFlota:
                 "carga_s": p.tiempo_carga_s, "descarga_s": p.tiempo_descarga_s,
                 "duracion_servicio_s": duracion,
             }
+            if bateria:
+                movimientos[numero]["bateria_inicio"] = bateria.nivel(agv, reloj)
+                movimientos[numero]["bateria_fin"] = bateria.nivel(agv, fin)
             vehiculos[agv]["mision"] = c.id_mision
             traza.append({"tiempo_s": reloj, "evento": "inicio", "movimiento": numero, "agv": agv})
             programar(fin, "fin", numero)
@@ -197,22 +223,51 @@ class SimuladorFlota:
             solicitudes[c.id_mision] = s
             programar(c.llegada_s, "llegada", c.id_mision)
 
+        finalizados = 0
         while eventos:
+            if bateria and finalizados == p.movimientos:
+                break
             reloj = eventos[0][0]  # Salto lógico directo, sin esperar tiempo real.
             while eventos and eventos[0][0] == reloj:
                 _, _, _, tipo, identificador = heapq.heappop(eventos)
+                if bateria and bateria.evento(tipo, identificador, reloj, finalizados < p.movimientos):
+                    continue
                 if tipo == "llegada":
                     pendientes.append(identificador)
                     traza.append({"tiempo_s": reloj, "evento": "llegada", "mision": identificador})
                 else:
+                    finalizados += 1
                     m = movimientos[identificador]
                     agv = m["agv"]
                     vehiculos[agv]["posicion"] = m["destino"]
                     traza.append({"tiempo_s": reloj, "evento": "fin", "movimiento": identificador, "agv": agv})
                     vehiculos[agv]["mision"] = None
+            if bateria and finalizados < p.movimientos:
+                for agv, v in vehiculos.items():
+                    if v["mision"] is None and bateria.nivel(agv, reloj) <= bateria.modelo.reserva_pct + 1e-8:
+                        bateria.recargar(agv, reloj)
             pendientes.sort(key=lambda i: (-self.red.calcular_score_solicitud(solicitudes[i]), i))
             while pendientes:
                 disponibles = [a for a, v in vehiculos.items() if v["mision"] is None]
+                if bateria:
+                    c = self.demanda[pendientes[0] - 1]
+                    candidatos = []
+                    for a in disponibles:
+                        duracion = servicio(c, a)
+                        if bateria.modelo.admite_mision(bateria.nivel(a, reloj), duracion):
+                            candidatos.append(a)
+                        else:
+                            if not bateria.modelo.admite_mision(100, duracion):
+                                # Recalcular desde los cargadores antes de declarar una misión inviable.
+                                origen, destino = self.extremos(c)
+                                mejores = [self.trayecto(nodo, origen)["tiempo_s"] + self.trayecto(origen, destino)["tiempo_s"] +
+                                           p.tiempo_carga_s + p.tiempo_descarga_s +
+                                           (p.espera_disponibilidad_retorno_s if c.tipo == "producto_terminado" else 0)
+                                           for nodo in bateria.libres]
+                                if not any(bateria.modelo.admite_mision(100, d) for d in mejores):
+                                    raise ValueError("La misión excede la autonomía disponible conservando la reserva.")
+                            bateria.recargar(a, reloj)
+                    disponibles = candidatos
                 if not disponibles:
                     break
                 # Reutiliza el criterio de menor distancia. Sin penalización de batería no validada.
@@ -284,11 +339,16 @@ class SimuladorFlota:
         kpis.update(calcular_capacidad(lista, traza, p.duracion_turno_s, cantidad_agv))
         grafo = Path(__file__).resolve().parents[2] / "data/red_agv_grafo_actualizado.json"
         return {
-            "version_modelo": VERSION_MODELO, "modo": "analisis_python",
+            **({"modelo_bateria": {"autonomia_s": bateria.modelo.autonomia_s,
+                "carga_completa_s": bateria.modelo.carga_completa_s, "reserva_pct": bateria.modelo.reserva_pct},
+                "recargas": bateria.recargas, "cargadores": list(cargadores),
+                "cargadores_no_utilizables": cargadores_no_utilizables} if bateria else {}),
+            "version_modelo": VERSION_MODELO + ("_bateria" if bateria else ""), "modo": "analisis_python",
             "timestamp": datetime.now(timezone.utc).isoformat(), "numero_agv": cantidad_agv,
             "parametros": asdict(p), "demanda": [asdict(c) for c in self.demanda],
             "grafo_sha256": hashlib.sha256(grafo.read_bytes()).hexdigest(),
-            "supuestos": SUPUESTOS, "limitaciones": LIMITACIONES,
+            "supuestos": SUPUESTOS + (["Batería lineal temporal: autonomía 8 h, carga completa 3 h, reserva operativa 20%; batería inicial 100%. Una plaza por cargador."] if bateria else []),
+            "limitaciones": [v.replace(" ni batería/recarga sin datos validados", "") for v in LIMITACIONES] if bateria else LIMITACIONES,
             "alcance_kpis": "Completados, backlog y utilización al corte; promedios y distancias sobre toda la demanda hasta terminar. Backlog máximo: cola tras despachos instantáneos.",
             "kpis": kpis, "por_agv": detalle, "movimientos": lista, "eventos": traza,
         }

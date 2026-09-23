@@ -1,4 +1,5 @@
 from enum import Enum
+from app.models.bateria import AUTONOMIA_HORAS, VELOCIDAD_REFERENCIA_MS, RESERVA_PCT, MODELO_BATERIA
 
 
 class EstadoAGV(str, Enum):
@@ -12,11 +13,11 @@ class EstadoAGV(str, Enum):
 class AGV:
 
     CAPACIDAD_MAXIMA_KG = 1000
-    AUTONOMIA_HORAS = 8
-    VELOCIDAD_REFERENCIA_MS = 1.0
+    AUTONOMIA_HORAS = AUTONOMIA_HORAS
+    VELOCIDAD_REFERENCIA_MS = VELOCIDAD_REFERENCIA_MS
 
-    RESERVA_BATERIA = 20
-    UMBRAL_RECARGA = 20
+    RESERVA_BATERIA = RESERVA_PCT
+    UMBRAL_RECARGA = RESERVA_PCT
 
     def __init__(self, id_agv, bateria, ubicacion):
         self.id_agv = id_agv
@@ -44,13 +45,7 @@ class AGV:
     def calcular_consumo_bateria(self, distancia):
         tiempo_segundos = self.calcular_tiempo_recorrido(distancia)
 
-        autonomia_segundos = self.AUTONOMIA_HORAS * 60 * 60
-
-        porcentaje_consumido = (
-            tiempo_segundos / autonomia_segundos
-        ) * 100
-
-        return porcentaje_consumido
+        return MODELO_BATERIA.consumo(tiempo_segundos)
 
     def puede_completar_mision(self, distancia):
         consumo = self.calcular_consumo_bateria(distancia)
