@@ -556,3 +556,164 @@ else:
         "Todavía no existen misiones generadas."
     )
 
+def mostrar_dashboard_prototipo():
+
+    st.divider()
+
+    st.markdown("## 📊 Monitoreo operativo")
+    st.caption("Prototipo visual del rendimiento de la flota durante el turno.")
+
+    # ---------------------------------------------------------
+    # DATOS FICTICIOS
+    # ---------------------------------------------------------
+
+    pallets_transportados = 148
+    peso_transportado = 112400
+    pallets_por_hora = 18.5
+
+    tiempo_promedio_mision = 4.2
+    distancia_total = 3.8
+    movimientos_vacios = 12
+
+    bateria_agv = 76
+    misiones_agv = 31
+    utilizacion_agv = 82
+
+
+    # ---------------------------------------------------------
+    # INDICADORES DEL TURNO
+    # ---------------------------------------------------------
+
+    st.markdown("### Indicadores del turno")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "📦 Pallets transportados",
+            pallets_transportados
+        )
+
+    with col2:
+        st.metric(
+            "⚖️ Peso movilizado",
+            f"{peso_transportado:,} kg"
+        )
+
+    with col3:
+        st.metric(
+            "⏱️ Pallets por hora",
+            pallets_por_hora
+        )
+
+
+    col4, col5, col6 = st.columns(3)
+
+    with col4:
+        st.metric(
+            "Tiempo promedio por misión",
+            f"{tiempo_promedio_mision} min"
+        )
+
+    with col5:
+        st.metric(
+            "Distancia recorrida",
+            f"{distancia_total} km"
+        )
+
+    with col6:
+        st.metric(
+            "Movimientos vacíos",
+            f"{movimientos_vacios} %"
+        )
+
+
+    # ---------------------------------------------------------
+    # ESTADO DEL AGV
+    # ---------------------------------------------------------
+
+    st.markdown("### 🚚 Estado de la flota")
+
+    with st.container(border=True):
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown("#### AGV-01")
+            st.write("**Estado:** TRANSPORTANDO")
+            st.write("**Ubicación:** LINEA_2")
+            st.write("**Misión actual:** M-031")
+
+        with col2:
+            st.metric(
+                "🔋 Batería",
+                f"{bateria_agv} %"
+            )
+
+            st.progress(bateria_agv)
+
+        with col3:
+            st.metric(
+                "Misiones realizadas",
+                misiones_agv
+            )
+
+            st.metric(
+                "Utilización",
+                f"{utilizacion_agv} %"
+            )
+
+
+    # ---------------------------------------------------------
+    # SOLICITUDES
+    # ---------------------------------------------------------
+
+    st.markdown("### 📋 Solicitudes de traslado")
+
+    solicitudes = [
+        {
+            "ID": "S-031",
+            "Origen": "LINEA_1",
+            "Destino": "ALMACEN",
+            "Estado": "COMPLETADA",
+            "AGV": "AGV-01"
+        },
+        {
+            "ID": "S-032",
+            "Origen": "ALMACEN",
+            "Destino": "LINEA_2",
+            "Estado": "EN PROCESO",
+            "AGV": "AGV-01"
+        },
+        {
+            "ID": "S-033",
+            "Origen": "LINEA_3",
+            "Destino": "ALMACEN",
+            "Estado": "PENDIENTE",
+            "AGV": "-"
+        }
+    ]
+
+    st.dataframe(
+        solicitudes,
+        use_container_width=True,
+        hide_index=True
+    )
+
+
+    # ---------------------------------------------------------
+    # RESUMEN
+    # ---------------------------------------------------------
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("✅ Atendidas", "31")
+
+    with col2:
+        st.metric("⏳ Pendientes", "2")
+
+    with col3:
+        st.metric("🔄 En proceso", "1")
+
+mostrar_dashboard_prototipo()
