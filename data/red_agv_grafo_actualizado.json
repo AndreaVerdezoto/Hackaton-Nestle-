@@ -1460,14 +1460,6 @@
     },
     {
       "origen": "ControlPoint23",
-      "destino": "ControlPoint23",
-      "distancia_m": 0.0002,
-      "bidireccional": false,
-      "ruta_flexsim": "Ruta46",
-      "tipo_ruta": "recta"
-    },
-    {
-      "origen": "ControlPoint23",
       "destino": "ControlPoint21",
       "distancia_m": 16.9377,
       "bidireccional": false,
@@ -1574,7 +1566,7 @@
       "origen": "X_Ruta29_2",
       "destino": "ControlPoint30",
       "distancia_m": 11.9072,
-      "bidireccional": false,
+      "bidireccional": true,
       "ruta_flexsim": "Ruta60",
       "tipo_ruta": "recta"
     },

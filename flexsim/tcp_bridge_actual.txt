@@ -1,0 +1,327 @@
+/**Custom Code*/
+
+Object current = ownerobject(c);
+Object fromObject = param(1);
+Variant msgparam1 = param(2);
+Variant msgparam2 = param(3);
+Variant msgparam3 = param(4);
+
+int conexion = serveraccept(1);
+
+if (conexion > 0)
+{
+    string mensaje = serverreceive(
+        conexion,
+        NULL,
+        1024,
+        0
+    );
+
+    Array partes = mensaje.split("|");
+
+
+    // =====================================================
+    // MISION
+    // =====================================================
+    // MISION|agv|origen|destino|pallet|estacion_origen|estacion_destino
+    // =====================================================
+
+    if (
+        partes.length == 7
+        && partes[1] == "MISION"
+    )
+    {
+        TaskExecuter agv = Model.find(
+            partes[2]
+        );
+
+        Object origen = Model.find(
+            partes[3]
+        );
+
+        Object destino = Model.find(
+            partes[4]
+        );
+
+        Object estacionOrigen = Model.find(
+            partes[6]
+        );
+
+        Object estacionDestino = Model.find(
+            partes[7]
+        );
+
+        Object pallet = model().find(
+            "/?" + partes[5]
+        );
+
+
+        // -------------------------------------------------
+        // VALIDACIONES
+        // -------------------------------------------------
+
+        if (!agv)
+        {
+            serversend(
+                conexion,
+                "ERROR|AGV_NO_EXISTE"
+            );
+        }
+
+        else if (!origen)
+        {
+            serversend(
+                conexion,
+                "ERROR|ORIGEN_NO_EXISTE"
+            );
+        }
+
+        else if (!destino)
+        {
+            serversend(
+                conexion,
+                "ERROR|DESTINO_NO_EXISTE"
+            );
+        }
+
+        else if (!estacionOrigen)
+        {
+            serversend(
+                conexion,
+                "ERROR|ESTACION_ORIGEN_NO_EXISTE"
+            );
+        }
+
+        else if (!estacionDestino)
+        {
+            serversend(
+                conexion,
+                "ERROR|ESTACION_DESTINO_NO_EXISTE"
+            );
+        }
+
+        else if (!pallet)
+        {
+            serversend(
+                conexion,
+                "ERROR|PALLET_NO_EXISTE"
+            );
+        }
+
+        else
+        {
+            // ---------------------------------------------
+            // CREAR MISION FISICA
+            // ---------------------------------------------
+
+            TaskSequence ts =
+                TaskSequence.create(
+                    agv
+                );
+
+
+            // 1. Viajar al origen
+            ts.addTask(
+                TASKTYPE_TRAVEL,
+                origen
+            );
+
+
+            // 2. Cargar pallet
+            ts.addTask(
+                TASKTYPE_LOAD,
+                pallet,
+                estacionOrigen
+            );
+
+
+            // 3. Viajar al destino
+            ts.addTask(
+                TASKTYPE_TRAVEL,
+                destino
+            );
+
+
+            // 4. Descargar pallet
+            ts.addTask(
+                TASKTYPE_UNLOAD,
+                pallet,
+                estacionDestino
+            );
+
+
+            // 5. Ejecutar
+            ts.dispatch();
+
+
+            serversend(
+                conexion,
+                "OK|MISION_INICIADA"
+            );
+        }
+    }
+
+
+    // =====================================================
+    // CREAR PALLET
+    // =====================================================
+    //
+    // Ejemplo:
+    //
+    // CREAR_PALLET|PALLET_TEST|spawn_almacen
+    //
+    // La estacion debe ser una Queue spawn_*.
+    // =====================================================
+
+    else if (
+        partes.length == 3
+        && partes[1] == "CREAR_PALLET"
+    )
+    {
+        string idPallet = partes[2];
+
+        Object estacion = Model.find(
+            partes[3]
+        );
+
+        Object palletExistente = model().find(
+            "/?" + idPallet
+        );
+
+        Object plantillaPallet = Model.find(
+            "Tools/FlowItemBin/Pallet/Pallet"
+        );
+
+
+        // -------------------------------------------------
+        // VALIDACIONES
+        // -------------------------------------------------
+
+        if (!estacion)
+        {
+            serversend(
+                conexion,
+                "ERROR|ESTACION_NO_EXISTE"
+            );
+        }
+
+        else if (palletExistente)
+        {
+            serversend(
+                conexion,
+                "ERROR|PALLET_YA_EXISTE"
+            );
+        }
+
+        else if (!plantillaPallet)
+        {
+            serversend(
+                conexion,
+                "ERROR|CLASE_PALLET_NO_EXISTE"
+            );
+        }
+
+        else
+        {
+            // ---------------------------------------------
+            // CREAR PALLET DIRECTAMENTE DENTRO DE LA QUEUE
+            // ---------------------------------------------
+
+            Object palletNuevo = insertcopy(
+                plantillaPallet,
+                estacion
+            );
+
+
+            if (!palletNuevo)
+            {
+                serversend(
+                    conexion,
+                    "ERROR|NO_SE_PUDO_CREAR_PALLET"
+                );
+            }
+
+            else
+            {
+                palletNuevo.name = idPallet;
+
+                serversend(
+                    conexion,
+                    "OK|PALLET_CREADO"
+                );
+            }
+        }
+    }
+
+
+    // =====================================================
+    // ESTADO
+    // =====================================================
+    // ESTADO|agv_01
+    // =====================================================
+
+    else if (
+        partes.length == 2
+        && partes[1] == "ESTADO"
+    )
+    {
+        TaskExecuter agv = Model.find(
+            partes[2]
+        );
+
+        if (!agv)
+        {
+            serversend(
+                conexion,
+                "ERROR|AGV_NO_EXISTE"
+            );
+        }
+
+        else if (
+            agv.activeTaskSequence
+            || agv.taskSequences.length > 0
+        )
+        {
+            serversend(
+                conexion,
+                "OK|OCUPADO"
+            );
+        }
+
+        else
+        {
+            serversend(
+                conexion,
+                "OK|LIBRE"
+            );
+        }
+    }
+
+
+    // =====================================================
+    // COMANDO DESCONOCIDO
+    // =====================================================
+
+    else
+    {
+        serversend(
+            conexion,
+            "ERROR|COMANDO_DESCONOCIDO"
+        );
+    }
+
+
+    servercloseconnection(
+        conexion
+    );
+}
+
+
+// =========================================================
+// VOLVER A ESCUCHAR
+// =========================================================
+
+current.message(
+    0.1,
+    current
+);

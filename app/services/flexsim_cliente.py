@@ -49,3 +49,12 @@ class FlexSimCliente:
         comando = f"ESTADO|{id_agv}"
 
         return self.enviar_comando(comando)
+
+    def crear_pallet(self, id_pallet, estacion):
+        for valor in (id_pallet, estacion):
+            if not valor or any(c in valor for c in "|\r\n"):
+                raise ValueError("ID y estación deben ser campos TCP no vacíos.")
+        respuesta = self.enviar_comando(f"CREAR_PALLET|{id_pallet}|{estacion}")
+        if respuesta != "OK|PALLET_CREADO":
+            raise RuntimeError(f"FlexSim rechazó crear el pallet: {respuesta}")
+        return respuesta
