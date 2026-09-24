@@ -28,11 +28,30 @@ def avanzar_reloj(reloj, ahora, limite):
 
 
 def nombre_nodo(nodo):
-    return {"ControlPoint7": "Almacén / Pallet Transit 4", "ControlPoint8": "Pallet Transit 3",
-            "ControlPoint11": "Pallet Transit 2", "ControlPoint13": "Pallet Transit 1",
-            "ControlPoint24": "Cookies 1", "ControlPoint25": "Cookies 2", "ControlPoint26": "Cookies 3",
-            "ControlPoint18": "Chocolate", "ControlPoint15": "Wafer",
-            **{n: f"Cargador CP{n.removeprefix('ControlPoint')}" for n in CARGADORES}}.get(nodo, nodo)
+    return {
+        # Pallet Transit: un punto de parada a cada lado de cada estación.
+        "ControlPoint13": "Pallet Transit 1 · Izq.",
+        "ControlPoint12": "Pallet Transit 1 · Der.",
+        "ControlPoint11": "Pallet Transit 2 · Izq.",
+        "ControlPoint27": "Pallet Transit 2 · Der.",
+        "ControlPoint8": "Pallet Transit 3 · Izq.",
+        "ControlPoint10": "Pallet Transit 3 · Der.",
+        "ControlPoint7": "Pallet Transit 4 · Izq.",
+        "ControlPoint9": "Pallet Transit 4 · Der.",
+        # Entrada de materia prima a las líneas.
+        "ControlPoint23": "Entrada Cookies 1",
+        "ControlPoint21": "Entrada Cookies 2",
+        "ControlPoint22": "Entrada Cookies 3",
+        "ControlPoint17": "Entrada Chocolate",
+        "ControlPoint14": "Entrada Wafer",
+        # Fin de línea / producto terminado.
+        "ControlPoint24": "Cookies 1",
+        "ControlPoint25": "Cookies 2",
+        "ControlPoint26": "Cookies 3",
+        "ControlPoint18": "Chocolate",
+        "ControlPoint15": "Wafer",
+        **{n: f"Cargador CP{n.removeprefix('ControlPoint')}" for n in CARGADORES},
+    }.get(nodo, nodo)
 
 
 LINEAS_VISUALES = {
@@ -193,14 +212,32 @@ def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
             for origen,destino in zip(a["ruta"],a["ruta"][1:]):
                 partes.append(linea(nodos[origen],nodos[destino],"#c42336",3.5))
     etiquetas=[]
+    puntos_parada = {
+        # Pallet Transit, ambos lados.
+        "ControlPoint13", "ControlPoint12", "ControlPoint11", "ControlPoint27",
+        "ControlPoint8", "ControlPoint10", "ControlPoint7", "ControlPoint9",
+        # Entradas de materia prima.
+        "ControlPoint23", "ControlPoint21", "ControlPoint22", "ControlPoint17", "ControlPoint14",
+        # Fines de línea.
+        "ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15",
+    }
+    etiquetas_sin_caja = {
+        "ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15",
+        # Pallet Transit: mantener solo los cuadrados y el tooltip, sin etiquetas visibles.
+        "ControlPoint13", "ControlPoint12", "ControlPoint11", "ControlPoint27",
+        "ControlPoint8", "ControlPoint10", "ControlPoint7", "ControlPoint9",
+    }
     for nodo,pos in nodos.items():
         x,y=xy(pos); label=nombre_nodo(nodo)
-        partes.append(f'<circle cx="{x}" cy="{y}" r="2.7" fill="#94a3b4"><title>{html.escape(nodo)}</title></circle>')
-        if label != nodo:
-            cargador=nodo in CARGADORES
-            color="#527899" if cargador else "#536477"
-            partes.append(f'<rect x="{x-5}" y="{y-5}" rx="2" width="10" height="10" fill="{color}" stroke="white" stroke-width="1.5"/>')
-            if nodo not in {"ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15"}:
+        partes.append(f'<circle cx="{x}" cy="{y}" r="2.7" fill="#94a3b4"><title>{html.escape(label if label != nodo else nodo)}</title></circle>')
+        if nodo in CARGADORES:
+            # Cargadores: misma forma cuadrada, verde para distinguirlos de paradas.
+            partes.append(f'<rect x="{x-5}" y="{y-5}" rx="2" width="10" height="10" fill="#2f9e68" stroke="white" stroke-width="1.5"><title>{html.escape(label)}</title></rect>')
+            etiquetas.append((x,y,label,nodo))
+        elif nodo in puntos_parada:
+            # Pallet Transit, entradas y fin de línea se mantienen grises.
+            partes.append(f'<rect x="{x-5}" y="{y-5}" rx="2" width="10" height="10" fill="#536477" stroke="white" stroke-width="1.5"><title>{html.escape(label)}</title></rect>')
+            if nodo not in etiquetas_sin_caja:
                 etiquetas.append((x,y,label,nodo))
     cajas=[]
     for x,y,label,nodo in sorted(etiquetas,key=lambda e:e[1]):
