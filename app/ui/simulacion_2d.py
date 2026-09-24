@@ -27,12 +27,50 @@ def avanzar_reloj(reloj, ahora, limite):
     reloj["marca"] = ahora
 
 
+
+
+def proxima_recarga(resultado, desde_s):
+    """Devuelve la próxima salida hacia un cargador a partir del instante dado."""
+    if not resultado:
+        return None
+    recargas = [r for lista in resultado.get("recargas", {}).values() for r in lista]
+    futuras = [r for r in recargas if r["inicio_s"] >= desde_s - 1e-9]
+    return min(futuras, key=lambda r: (r["inicio_s"], r["agv"])) if futuras else None
+
+
+def instante_viajando_a_cargador(recarga):
+    """Punto intermedio del viaje para mostrar al AGV ya en ruta, no estacionado."""
+    duracion = max(0.0, recarga["llegada_s"] - recarga["inicio_s"])
+    if duracion <= 0:
+        return recarga["inicio_s"]
+    # 25 % del trayecto: claramente salió, pero todavía no llegó al cargador.
+    return recarga["inicio_s"] + min(max(duracion * 0.25, 0.1), max(0.1, duracion - 0.1))
+
 def nombre_nodo(nodo):
-    return {"ControlPoint7": "Almacén / Pallet Transit 4", "ControlPoint8": "Pallet Transit 3",
-            "ControlPoint11": "Pallet Transit 2", "ControlPoint13": "Pallet Transit 1",
-            "ControlPoint24": "Cookies 1", "ControlPoint25": "Cookies 2", "ControlPoint26": "Cookies 3",
-            "ControlPoint18": "Chocolate", "ControlPoint15": "Wafer",
-            **{n: f"Cargador CP{n.removeprefix('ControlPoint')}" for n in CARGADORES}}.get(nodo, nodo)
+    return {
+        # Pallet Transit: un punto de parada a cada lado de cada estación.
+        "ControlPoint13": "Pallet Transit 1 · Izq.",
+        "ControlPoint12": "Pallet Transit 1 · Der.",
+        "ControlPoint11": "Pallet Transit 2 · Izq.",
+        "ControlPoint27": "Pallet Transit 2 · Der.",
+        "ControlPoint8": "Pallet Transit 3 · Izq.",
+        "ControlPoint10": "Pallet Transit 3 · Der.",
+        "ControlPoint7": "Pallet Transit 4 · Izq.",
+        "ControlPoint9": "Pallet Transit 4 · Der.",
+        # Entrada de materia prima a las líneas.
+        "ControlPoint23": "Entrada Cookies 1",
+        "ControlPoint21": "Entrada Cookies 2",
+        "ControlPoint22": "Entrada Cookies 3",
+        "ControlPoint17": "Entrada Chocolate",
+        "ControlPoint14": "Entrada Wafer",
+        # Fin de línea / producto terminado.
+        "ControlPoint24": "Cookies 1",
+        "ControlPoint25": "Cookies 2",
+        "ControlPoint26": "Cookies 3",
+        "ControlPoint18": "Chocolate",
+        "ControlPoint15": "Wafer",
+        **{n: f"Cargador CP{n.removeprefix('ControlPoint')}" for n in CARGADORES},
+    }.get(nodo, nodo)
 
 
 LINEAS_VISUALES = {
@@ -193,14 +231,32 @@ def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
             for origen,destino in zip(a["ruta"],a["ruta"][1:]):
                 partes.append(linea(nodos[origen],nodos[destino],"#c42336",3.5))
     etiquetas=[]
+    puntos_parada = {
+        # Pallet Transit, ambos lados.
+        "ControlPoint13", "ControlPoint12", "ControlPoint11", "ControlPoint27",
+        "ControlPoint8", "ControlPoint10", "ControlPoint7", "ControlPoint9",
+        # Entradas de materia prima.
+        "ControlPoint23", "ControlPoint21", "ControlPoint22", "ControlPoint17", "ControlPoint14",
+        # Fines de línea.
+        "ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15",
+    }
+    etiquetas_sin_caja = {
+        "ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15",
+        # Pallet Transit: mantener solo los cuadrados y el tooltip, sin etiquetas visibles.
+        "ControlPoint13", "ControlPoint12", "ControlPoint11", "ControlPoint27",
+        "ControlPoint8", "ControlPoint10", "ControlPoint7", "ControlPoint9",
+    }
     for nodo,pos in nodos.items():
         x,y=xy(pos); label=nombre_nodo(nodo)
-        partes.append(f'<circle cx="{x}" cy="{y}" r="2.7" fill="#94a3b4"><title>{html.escape(nodo)}</title></circle>')
-        if label != nodo:
-            cargador=nodo in CARGADORES
-            color="#527899" if cargador else "#536477"
-            partes.append(f'<rect x="{x-5}" y="{y-5}" rx="2" width="10" height="10" fill="{color}" stroke="white" stroke-width="1.5"/>')
-            if nodo not in {"ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15"}:
+        partes.append(f'<circle cx="{x}" cy="{y}" r="2.7" fill="#94a3b4"><title>{html.escape(label if label != nodo else nodo)}</title></circle>')
+        if nodo in CARGADORES:
+            # Cargadores: misma forma cuadrada, verde para distinguirlos de paradas.
+            partes.append(f'<rect x="{x-5}" y="{y-5}" rx="2" width="10" height="10" fill="#2f9e68" stroke="white" stroke-width="1.5"><title>{html.escape(label)}</title></rect>')
+            etiquetas.append((x,y,label,nodo))
+        elif nodo in puntos_parada:
+            # Pallet Transit, entradas y fin de línea se mantienen grises.
+            partes.append(f'<rect x="{x-5}" y="{y-5}" rx="2" width="10" height="10" fill="#536477" stroke="white" stroke-width="1.5"><title>{html.escape(label)}</title></rect>')
+            if nodo not in etiquetas_sin_caja:
                 etiquetas.append((x,y,label,nodo))
     cajas=[]
     for x,y,label,nodo in sorted(etiquetas,key=lambda e:e[1]):
@@ -268,8 +324,6 @@ def tabla_operativa(filas, mensaje):
 
 @st.fragment(run_every=0.2)
 def mostrar_2d():
-    if st.session_state.get("modo_principal") != "Simulación 2D":
-        return
     with st.container(key="vista2d"):
         st.html('<style>'+ (COMPONENTES / "estilos_2d.css").read_text(encoding="utf-8") +'</style>')
         st.html('<div class="control-cabecera"><div><div class="eyebrow">INTRALOGÍSTICA · CONTROL DE FLOTA</div><h2>Centro de operaciones AGV</h2><p>Producto terminado · 215 pallets por turno · Simulación 2D</p></div><div class="marca-reservada" aria-label="Espacio reservado para el logo de Nestlé">Nestlé<small>ESPACIO PARA LOGO</small></div></div>')
@@ -277,9 +331,9 @@ def mostrar_2d():
         reloj = st.session_state.setdefault("reloj_2d", {"tiempo_s": 0., "marca": time.monotonic(), "ejecutando": False, "velocidad": 1})
         if resultado:
             avanzar_reloj(reloj, time.monotonic(), resultado["kpis"]["tiempo_total_s"])
-        controles = st.columns([1,1,1,1,1,1])
+        controles = st.columns([1,1,1,1,1,1.2,1])
         cantidad = controles[0].selectbox("AGV", [2,3,4,5], index=1, key="n_2d")
-        velocidad = controles[1].selectbox("Velocidad", [1,2,5,10], format_func=lambda n:f"×{n}", key="vel_2d")
+        velocidad = controles[1].selectbox("Velocidad", [1,2,5,10,20,50], format_func=lambda n:f"×{n}", key="vel_2d")
         reloj["velocidad"] = velocidad
         if controles[2].button("Iniciar", key="iniciar_2d", type="primary", disabled=resultado is not None):
             try:
@@ -294,8 +348,24 @@ def mostrar_2d():
             reloj["ejecutando"] = False
         if controles[4].button("Reanudar", disabled=resultado is None or reloj["ejecutando"], key="reanudar_2d"):
             reloj.update(ejecutando=True, marca=time.monotonic())
-        if controles[5].button("Reiniciar", key="reset_2d"):
+        if controles[5].button("Ir a recarga", disabled=resultado is None, key="ir_recarga_2d", help="Salta al próximo instante en que un AGV ya va camino al cargador."):
+            recarga = proxima_recarga(resultado, reloj["tiempo_s"] + 0.01)
+            if recarga is not None:
+                reloj.update(
+                    tiempo_s=instante_viajando_a_cargador(recarga),
+                    ejecutando=False,
+                    marca=time.monotonic(),
+                )
+                st.session_state["ruta_2d"] = recarga["agv"]
+                st.session_state["salto_recarga_2d"] = (
+                    f"{recarga['agv']} va hacia {nombre_nodo(recarga['destino'])}"
+                )
+                st.rerun(scope="fragment")
+            else:
+                st.session_state["salto_recarga_2d"] = "No quedan salidas a recarga después de este instante."
+        if controles[6].button("Reiniciar", key="reset_2d"):
             st.session_state.pop("resultado_2d", None)
+            st.session_state.pop("salto_recarga_2d", None)
             reloj.update(tiempo_s=0., ejecutando=False, marca=time.monotonic())
             resultado = None
         mapa = cargar_mapa()
@@ -305,6 +375,8 @@ def mostrar_2d():
             return
         estado = estado_en_instante(resultado, reloj["tiempo_s"], mapa)
         st.caption(f"Tiempo simulado: {horas_minutos(estado['tiempo_s'])} · {'EN MARCHA' if reloj['ejecutando'] else 'PAUSADA / FINALIZADA'} · {resultado['numero_agv']} AGV")
+        if st.session_state.get("salto_recarga_2d"):
+            st.caption("⚡ " + st.session_state["salto_recarga_2d"])
         if cantidad != resultado["numero_agv"]:
             st.caption("Reinicia e inicia para aplicar otra cantidad de AGV.")
         for col,(nombre,valor) in zip(st.columns(4),[("Pallets completados",estado["completados"]),
