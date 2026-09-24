@@ -1,0 +1,1622 @@
+{
+  "nodos": [
+    {
+      "id": "ControlPoint1",
+      "tipo": "punto_control",
+      "x": 52.931,
+      "y": -131.0304,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint2",
+      "tipo": "punto_control",
+      "x": 53.0015,
+      "y": -123.9551,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint3",
+      "tipo": "punto_control",
+      "x": 52.9384,
+      "y": -117.9146,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint4",
+      "tipo": "punto_control",
+      "x": 52.9431,
+      "y": -110.9415,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint5",
+      "tipo": "punto_control",
+      "x": 52.9562,
+      "y": -103.9617,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint6",
+      "tipo": "punto_control",
+      "x": 52.9263,
+      "y": -96.9568,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint7",
+      "tipo": "punto_control",
+      "x": 72.9975,
+      "y": -132.1957,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint8",
+      "tipo": "punto_control",
+      "x": 73.0693,
+      "y": -116.9948,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint9",
+      "tipo": "punto_control",
+      "x": 81.5905,
+      "y": -132.1458,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint10",
+      "tipo": "punto_control",
+      "x": 81.5155,
+      "y": -117.0099,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint11",
+      "tipo": "punto_control",
+      "x": 72.9921,
+      "y": -100.0274,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint12",
+      "tipo": "punto_control",
+      "x": 80.4844,
+      "y": -84.1163,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint13",
+      "tipo": "punto_control",
+      "x": 73.1436,
+      "y": -83.9276,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint14",
+      "tipo": "punto_control",
+      "x": 100.266,
+      "y": -125.0333,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint15",
+      "tipo": "punto_control",
+      "x": 148.9337,
+      "y": -122.0776,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint16",
+      "tipo": "punto_control",
+      "x": 97.2538,
+      "y": -115.9922,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint17",
+      "tipo": "punto_control",
+      "x": 98.8906,
+      "y": -92.9545,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint18",
+      "tipo": "punto_control",
+      "x": 148.815,
+      "y": -91.8366,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint19",
+      "tipo": "punto_control",
+      "x": 93.5112,
+      "y": -83.9417,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint20",
+      "tipo": "punto_control",
+      "x": 51.9442,
+      "y": -74.1881,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint21",
+      "tipo": "punto_control",
+      "x": 48.8393,
+      "y": -41.0368,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint22",
+      "tipo": "punto_control",
+      "x": 48.8393,
+      "y": -27.774,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint23",
+      "tipo": "punto_control",
+      "x": 48.8393,
+      "y": -57.9745,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint24",
+      "tipo": "punto_control",
+      "x": 146.0944,
+      "y": -58.3823,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint25",
+      "tipo": "punto_control",
+      "x": 146.1148,
+      "y": -41.7762,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint26",
+      "tipo": "punto_control",
+      "x": 146.1311,
+      "y": -28.5521,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint27",
+      "tipo": "punto_control",
+      "x": 80.0345,
+      "y": -100.0454,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint29",
+      "tipo": "punto_control",
+      "x": 106.1217,
+      "y": -104.1022,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint30",
+      "tipo": "punto_control",
+      "x": 106.1115,
+      "y": -136.9706,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint31",
+      "tipo": "punto_control",
+      "x": 54.5961,
+      "y": -79.4202,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint32",
+      "tipo": "punto_control",
+      "x": 40.2266,
+      "y": -36.072,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta13_1",
+      "tipo": "interseccion",
+      "x": 37.3321,
+      "y": -137.0129,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta13_2",
+      "tipo": "interseccion",
+      "x": 66.9883,
+      "y": -137.0129,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta14_1",
+      "tipo": "interseccion",
+      "x": 37.3321,
+      "y": -89.1546,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta14_2",
+      "tipo": "interseccion",
+      "x": 37.3321,
+      "y": -123.9551,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta14_3",
+      "tipo": "interseccion",
+      "x": 37.3321,
+      "y": -103.9616,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta14_4",
+      "tipo": "interseccion",
+      "x": 37.3321,
+      "y": -96.9568,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta14_5",
+      "tipo": "interseccion",
+      "x": 37.3321,
+      "y": -117.9144,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta14_6",
+      "tipo": "interseccion",
+      "x": 37.3321,
+      "y": -131.0303,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta14_7",
+      "tipo": "interseccion",
+      "x": 37.3321,
+      "y": -110.9415,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta15_1",
+      "tipo": "interseccion",
+      "x": 67.0579,
+      "y": -89.1546,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta15_2",
+      "tipo": "interseccion",
+      "x": 54.5961,
+      "y": -89.1546,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta16_1",
+      "tipo": "interseccion",
+      "x": 67.0073,
+      "y": -123.9681,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta16_2",
+      "tipo": "interseccion",
+      "x": 67.0522,
+      "y": -93.0687,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta16_3",
+      "tipo": "interseccion",
+      "x": 67.0364,
+      "y": -103.9617,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta16_4",
+      "tipo": "interseccion",
+      "x": 67.0466,
+      "y": -96.9571,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta16_5",
+      "tipo": "interseccion",
+      "x": 67.0161,
+      "y": -117.9147,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta16_6",
+      "tipo": "interseccion",
+      "x": 66.997,
+      "y": -131.0305,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta16_7",
+      "tipo": "interseccion",
+      "x": 67.0262,
+      "y": -110.9415,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta1_1",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -92.9692,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta1_2",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -108.033,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta1_3",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -123.968,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta1_4",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -116.9948,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta1_5",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -132.1957,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta1_6",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -100.0274,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta1_7",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -83.9276,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta1_8",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -136.9739,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta26_1",
+      "tipo": "interseccion",
+      "x": 71.0032,
+      "y": -78.0231,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta27_1",
+      "tipo": "interseccion",
+      "x": 100.5682,
+      "y": -125.0333,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta29_1",
+      "tipo": "interseccion",
+      "x": 141.9609,
+      "y": -125.0392,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta29_2",
+      "tipo": "interseccion",
+      "x": 106.1115,
+      "y": -125.0392,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta30_1",
+      "tipo": "interseccion",
+      "x": 141.9609,
+      "y": -129.035,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta31_1",
+      "tipo": "interseccion",
+      "x": 148.9337,
+      "y": -129.035,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta32_1",
+      "tipo": "interseccion",
+      "x": 148.9337,
+      "y": -113.7234,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta33_1",
+      "tipo": "interseccion",
+      "x": 97.2538,
+      "y": -113.7234,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta34_1",
+      "tipo": "interseccion",
+      "x": 97.2538,
+      "y": -123.1481,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta35_1",
+      "tipo": "interseccion",
+      "x": 138.8284,
+      "y": -92.9545,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta35_2",
+      "tipo": "interseccion",
+      "x": 106.1217,
+      "y": -92.9545,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta36_1",
+      "tipo": "interseccion",
+      "x": 138.8284,
+      "y": -99.0407,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta37_1",
+      "tipo": "interseccion",
+      "x": 148.815,
+      "y": -99.0407,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta38_1",
+      "tipo": "interseccion",
+      "x": 148.815,
+      "y": -82.0872,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta39_1",
+      "tipo": "interseccion",
+      "x": 93.5112,
+      "y": -82.0872,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta40_1",
+      "tipo": "interseccion",
+      "x": 93.5112,
+      "y": -90.8554,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta42_1",
+      "tipo": "interseccion",
+      "x": 71.0286,
+      "y": -74.1881,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta43_1",
+      "tipo": "interseccion",
+      "x": 45.0819,
+      "y": -74.1881,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta44_1",
+      "tipo": "interseccion",
+      "x": 45.0819,
+      "y": -63.1075,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta45_1",
+      "tipo": "interseccion",
+      "x": 146.1403,
+      "y": -21.0181,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta46_1",
+      "tipo": "interseccion",
+      "x": 48.8393,
+      "y": -21.0181,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta46_2",
+      "tipo": "interseccion",
+      "x": 48.8393,
+      "y": -36.072,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta47_1",
+      "tipo": "interseccion",
+      "x": 48.8393,
+      "y": -63.1075,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta48_1",
+      "tipo": "interseccion",
+      "x": 146.0753,
+      "y": -74.0097,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta49_1",
+      "tipo": "interseccion",
+      "x": 82.412,
+      "y": -74.0097,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_1",
+      "tipo": "interseccion",
+      "x": 82.3675,
+      "y": -92.9545,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_10",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -100.0454,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_11",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -84.1163,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_12",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -136.9992,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_2",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -78.0038,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_3",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -108.0331,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_4",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -123.1481,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_5",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -124.0113,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_6",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -125.0332,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_7",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -117.0099,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_8",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -90.8551,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta7_9",
+      "tipo": "interseccion",
+      "x": 82.4121,
+      "y": -132.1458,
+      "z": 0.0,
+      "nombre_amigable": ""
+    }
+  ],
+  "aristas": [
+    {
+      "origen": "X_Ruta1_5",
+      "destino": "ControlPoint7",
+      "distancia_m": 2.0654,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta2",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_4",
+      "destino": "ControlPoint8",
+      "distancia_m": 2.115,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta3",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_6",
+      "destino": "ControlPoint11",
+      "distancia_m": 2.0753,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta4",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_7",
+      "destino": "ControlPoint13",
+      "distancia_m": 2.2526,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta5",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_11",
+      "destino": "ControlPoint12",
+      "distancia_m": 1.9358,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta8",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_10",
+      "destino": "ControlPoint27",
+      "distancia_m": 2.4451,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta9",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_7",
+      "destino": "ControlPoint10",
+      "distancia_m": 0.9076,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta10",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta13_2",
+      "destino": "X_Ruta13_1",
+      "distancia_m": 29.6562,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta13",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta13_1",
+      "destino": "X_Ruta14_6",
+      "distancia_m": 5.9477,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta14",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta14_6",
+      "destino": "X_Ruta14_2",
+      "distancia_m": 7.0752,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta14",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta14_2",
+      "destino": "X_Ruta14_5",
+      "distancia_m": 6.0407,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta14",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta14_5",
+      "destino": "X_Ruta14_7",
+      "distancia_m": 6.9729,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta14",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta14_7",
+      "destino": "X_Ruta14_3",
+      "distancia_m": 6.9799,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta14",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta14_3",
+      "destino": "X_Ruta14_4",
+      "distancia_m": 7.0048,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta14",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta14_4",
+      "destino": "X_Ruta14_1",
+      "distancia_m": 7.8022,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta14",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta14_1",
+      "destino": "X_Ruta15_2",
+      "distancia_m": 17.3571,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta15",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta15_2",
+      "destino": "X_Ruta15_1",
+      "distancia_m": 12.4618,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta15",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta15_1",
+      "destino": "X_Ruta16_2",
+      "distancia_m": 3.9111,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta16",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta16_2",
+      "destino": "X_Ruta16_4",
+      "distancia_m": 3.8884,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta16",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta16_4",
+      "destino": "X_Ruta16_3",
+      "distancia_m": 7.0047,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta16",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta16_3",
+      "destino": "X_Ruta16_7",
+      "distancia_m": 6.9798,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta16",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta16_7",
+      "destino": "X_Ruta16_5",
+      "distancia_m": 6.9731,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta16",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta16_5",
+      "destino": "X_Ruta16_1",
+      "distancia_m": 6.0534,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta16",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta16_1",
+      "destino": "X_Ruta16_6",
+      "distancia_m": 7.0625,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta16",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta16_6",
+      "destino": "X_Ruta13_2",
+      "distancia_m": 5.9824,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta16",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta16_1",
+      "destino": "ControlPoint2",
+      "distancia_m": 13.9681,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta12",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint2",
+      "destino": "X_Ruta14_2",
+      "distancia_m": 15.6693,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta12",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta16_7",
+      "destino": "ControlPoint4",
+      "distancia_m": 14.0504,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta19",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint4",
+      "destino": "X_Ruta14_7",
+      "distancia_m": 15.6109,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta19",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta16_2",
+      "destino": "X_Ruta1_1",
+      "distancia_m": 4.0434,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta21",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta16_4",
+      "destino": "ControlPoint6",
+      "distancia_m": 13.9405,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta22",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint6",
+      "destino": "X_Ruta14_4",
+      "distancia_m": 15.5942,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta22",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta14_3",
+      "destino": "ControlPoint5",
+      "distancia_m": 15.7475,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta20",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint5",
+      "destino": "X_Ruta16_3",
+      "distancia_m": 14.0802,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta20",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta14_5",
+      "destino": "ControlPoint3",
+      "distancia_m": 15.7066,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta18",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint3",
+      "destino": "X_Ruta16_5",
+      "distancia_m": 14.0777,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta18",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta14_6",
+      "destino": "ControlPoint1",
+      "distancia_m": 15.7643,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta17",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint1",
+      "destino": "X_Ruta16_6",
+      "distancia_m": 14.066,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta17",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_1",
+      "destino": "X_Ruta1_1",
+      "distancia_m": 11.5064,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta25",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta26_1",
+      "destino": "X_Ruta7_2",
+      "distancia_m": 11.4954,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta26",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_9",
+      "destino": "ControlPoint9",
+      "distancia_m": 0.8665,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta6",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_6",
+      "destino": "ControlPoint14",
+      "distancia_m": 17.7682,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta27",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint14",
+      "destino": "X_Ruta27_1",
+      "distancia_m": 0.3022,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta27",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta34_1",
+      "destino": "X_Ruta7_4",
+      "distancia_m": 14.7595,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta28",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta27_1",
+      "destino": "X_Ruta29_2",
+      "distancia_m": 5.5433,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta29",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta29_2",
+      "destino": "X_Ruta29_1",
+      "distancia_m": 35.8494,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta29",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta29_1",
+      "destino": "X_Ruta30_1",
+      "distancia_m": 3.9536,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta30",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta30_1",
+      "destino": "X_Ruta31_1",
+      "distancia_m": 6.9991,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta31",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta31_1",
+      "destino": "ControlPoint15",
+      "distancia_m": 6.9397,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta32",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint15",
+      "destino": "X_Ruta32_1",
+      "distancia_m": 8.3542,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta32",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta32_1",
+      "destino": "X_Ruta33_1",
+      "distancia_m": 51.689,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta33",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta33_1",
+      "destino": "ControlPoint16",
+      "distancia_m": 2.2907,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta34",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint16",
+      "destino": "X_Ruta34_1",
+      "distancia_m": 7.1559,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta34",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_1",
+      "destino": "ControlPoint17",
+      "distancia_m": 16.4144,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta35",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint17",
+      "destino": "X_Ruta35_2",
+      "distancia_m": 7.2311,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta35",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta35_2",
+      "destino": "X_Ruta35_1",
+      "distancia_m": 32.7067,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta35",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta35_1",
+      "destino": "X_Ruta36_1",
+      "distancia_m": 6.0145,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta36",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta36_1",
+      "destino": "X_Ruta37_1",
+      "distancia_m": 9.9924,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta37",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta37_1",
+      "destino": "ControlPoint18",
+      "distancia_m": 7.1882,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta38",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint18",
+      "destino": "X_Ruta38_1",
+      "distancia_m": 9.7494,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta38",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta38_1",
+      "destino": "X_Ruta39_1",
+      "distancia_m": 55.2647,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta39",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta39_1",
+      "destino": "ControlPoint19",
+      "distancia_m": 1.8059,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta40",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint19",
+      "destino": "X_Ruta40_1",
+      "distancia_m": 6.9137,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta40",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta40_1",
+      "destino": "X_Ruta7_8",
+      "distancia_m": 10.979,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta41",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_8",
+      "destino": "X_Ruta1_5",
+      "distancia_m": 4.7782,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_5",
+      "destino": "X_Ruta1_3",
+      "distancia_m": 8.2276,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_3",
+      "destino": "X_Ruta1_4",
+      "distancia_m": 6.9732,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_4",
+      "destino": "X_Ruta1_2",
+      "distancia_m": 8.9619,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_2",
+      "destino": "X_Ruta1_6",
+      "distancia_m": 8.0056,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_6",
+      "destino": "X_Ruta1_1",
+      "distancia_m": 7.0582,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_1",
+      "destino": "X_Ruta1_7",
+      "distancia_m": 9.0416,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_7",
+      "destino": "X_Ruta26_1",
+      "distancia_m": 5.9045,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta1",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_2",
+      "destino": "X_Ruta7_11",
+      "distancia_m": 6.1125,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_11",
+      "destino": "X_Ruta7_8",
+      "distancia_m": 6.7388,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_8",
+      "destino": "X_Ruta7_1",
+      "distancia_m": 2.0994,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_1",
+      "destino": "X_Ruta7_10",
+      "distancia_m": 7.0909,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_10",
+      "destino": "X_Ruta7_3",
+      "distancia_m": 7.9877,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_3",
+      "destino": "X_Ruta7_7",
+      "distancia_m": 8.9768,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_7",
+      "destino": "X_Ruta7_4",
+      "distancia_m": 6.1382,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_4",
+      "destino": "X_Ruta7_5",
+      "distancia_m": 0.8632,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_5",
+      "destino": "X_Ruta7_6",
+      "distancia_m": 1.022,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_6",
+      "destino": "X_Ruta7_9",
+      "distancia_m": 7.1125,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_9",
+      "destino": "X_Ruta7_12",
+      "distancia_m": 4.8534,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta7",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta26_1",
+      "destino": "X_Ruta42_1",
+      "distancia_m": 3.9254,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta42",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta42_1",
+      "destino": "ControlPoint20",
+      "distancia_m": 19.0341,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta43",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint20",
+      "destino": "X_Ruta43_1",
+      "distancia_m": 6.8623,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta43",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta43_1",
+      "destino": "X_Ruta44_1",
+      "distancia_m": 11.1226,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta44",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta47_1",
+      "destino": "ControlPoint23",
+      "distancia_m": 5.1329,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta46",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint23",
+      "destino": "ControlPoint21",
+      "distancia_m": 16.9377,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta46",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint21",
+      "destino": "X_Ruta46_2",
+      "distancia_m": 4.9647,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta46",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta46_2",
+      "destino": "ControlPoint22",
+      "distancia_m": 8.298,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta46",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint22",
+      "destino": "X_Ruta46_1",
+      "distancia_m": 6.7559,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta46",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta44_1",
+      "destino": "X_Ruta47_1",
+      "distancia_m": 3.7574,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta47",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta46_1",
+      "destino": "X_Ruta45_1",
+      "distancia_m": 97.4145,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta45",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta45_1",
+      "destino": "ControlPoint26",
+      "distancia_m": 7.534,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta48",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint26",
+      "destino": "ControlPoint25",
+      "distancia_m": 13.224,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta48",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint25",
+      "destino": "ControlPoint24",
+      "distancia_m": 16.6062,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta48",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "ControlPoint24",
+      "destino": "X_Ruta48_1",
+      "distancia_m": 15.6274,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta48",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta49_1",
+      "destino": "X_Ruta7_2",
+      "distancia_m": 3.9962,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta49",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta48_1",
+      "destino": "X_Ruta49_1",
+      "distancia_m": 63.6633,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta50",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta35_2",
+      "destino": "ControlPoint29",
+      "distancia_m": 11.109,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta59",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta29_2",
+      "destino": "ControlPoint30",
+      "distancia_m": 11.9072,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta60",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta15_2",
+      "destino": "ControlPoint31",
+      "distancia_m": 9.6907,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta61",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta46_2",
+      "destino": "ControlPoint32",
+      "distancia_m": 8.674,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta62",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_5",
+      "destino": "X_Ruta1_3",
+      "distancia_m": 11.4709,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta23",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_2",
+      "destino": "X_Ruta7_3",
+      "distancia_m": 11.4498,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta24",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta7_12",
+      "destino": "X_Ruta1_8",
+      "distancia_m": 11.3778,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta11",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta1_3",
+      "destino": "X_Ruta16_1",
+      "distancia_m": 3.9399,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta51",
+      "tipo_ruta": "recta"
+    }
+  ]
+}
