@@ -8,7 +8,7 @@ CARGA_COMPLETA_HORAS = 3.0
 RESERVA_PCT = 20.0  # Regla del prototipo, no requisito del fabricante.
 CARGA_PALLET_S = 30.0
 DESCARGA_PALLET_S = 30.0
-CARGADORES = ("ControlPoint31", "ControlPoint32", "ControlPoint30", "ControlPoint29")
+CARGADORES = ("ControlPoint31", "ControlPoint28", "ControlPoint32", "ControlPoint30", "ControlPoint29")
 
 
 @dataclass(frozen=True)

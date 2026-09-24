@@ -10,6 +10,7 @@ _mapa_interactivo = components.declare_component("mapa_agv_2d", path=str(COMPONE
 
 from app.models.bateria import CARGADORES
 from app.services.estado_visual import cargar_mapa, estado_en_instante
+from app.services.inventario_transito import eventos_inventario, registros_inventario
 
 
 def horas_minutos(segundos):
@@ -56,6 +57,13 @@ def nombre_nodo(nodo):
         "ControlPoint10": "Pallet Transit 3 · Der.",
         "ControlPoint7": "Pallet Transit 4 · Izq.",
         "ControlPoint9": "Pallet Transit 4 · Der.",
+        # Paradas del almacén.
+        "ControlPoint1": "Almacén CP1",
+        "ControlPoint2": "Almacén CP2",
+        "ControlPoint3": "Almacén CP3",
+        "ControlPoint4": "Almacén CP4",
+        "ControlPoint5": "Almacén CP5",
+        "ControlPoint6": "Almacén CP6",
         # Entrada de materia prima a las líneas.
         "ControlPoint23": "Entrada Cookies 1",
         "ControlPoint21": "Entrada Cookies 2",
@@ -239,6 +247,9 @@ def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
                 partes.append(linea(nodos[origen],nodos[destino],"#c42336",3.5))
     etiquetas=[]
     puntos_parada = {
+        # Paradas del almacén.
+        "ControlPoint1", "ControlPoint2", "ControlPoint3",
+        "ControlPoint4", "ControlPoint5", "ControlPoint6",
         # Pallet Transit, ambos lados.
         "ControlPoint13", "ControlPoint12", "ControlPoint11", "ControlPoint27",
         "ControlPoint8", "ControlPoint10", "ControlPoint7", "ControlPoint9",
@@ -248,6 +259,9 @@ def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
         "ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15",
     }
     etiquetas_sin_caja = {
+        # En almacén se muestran los cuadrados grises sin recargar el mapa con texto.
+        "ControlPoint1", "ControlPoint2", "ControlPoint3",
+        "ControlPoint4", "ControlPoint5", "ControlPoint6",
         "ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15",
         # Pallet Transit: mantener solo los cuadrados y el tooltip, sin etiquetas visibles.
         "ControlPoint13", "ControlPoint12", "ControlPoint11", "ControlPoint27",
@@ -265,10 +279,20 @@ def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
             partes.append(f'<rect x="{x-5}" y="{y-5}" rx="2" width="10" height="10" fill="#536477" stroke="white" stroke-width="1.5"><title>{html.escape(label)}</title></rect>')
             if nodo not in etiquetas_sin_caja:
                 etiquetas.append((x,y,label,nodo))
+    # Ajustes puntuales de etiquetas para no tapar vías ni otros cargadores.
+    # Solo se mueve el cuadro de texto; el nodo/cuadrado conserva su posición real.
+    ajustes_etiqueta = {
+        "ControlPoint31": {"lado": "derecha", "dx": 16, "dy": -13},
+        "ControlPoint17": {"lado": "derecha", "dx": 20, "dy": -31},
+    }
     cajas=[]
     for x,y,label,nodo in sorted(etiquetas,key=lambda e:e[1]):
-        derecha=nodo in ("ControlPoint24","ControlPoint25","ControlPoint26","ControlPoint18","ControlPoint15")
-        w=len(label)*6.7+16;lx=x+14 if derecha else x-w-14;ly=y-13
+        ajuste = ajustes_etiqueta.get(nodo, {})
+        derecha = ajuste.get("lado") == "derecha" or nodo in ("ControlPoint24","ControlPoint25","ControlPoint26","ControlPoint18","ControlPoint15")
+        w=len(label)*6.7+16
+        dx = ajuste.get("dx", 14)
+        ly = y + ajuste.get("dy", -13)
+        lx = x + dx if derecha else x-w-dx
         lx=max(12,min(ancho-w-12,lx))
         while any(lx < bx+bw+5 and lx+w+5 > bx and ly < by+bh+4 and ly+24+4 > by for bx,by,bw,bh in cajas):
             ly+=26
@@ -400,7 +424,7 @@ def mostrar_2d():
         mapa = cargar_mapa()
         if resultado is None:
             mostrar_mapa(mapa, [], None, estado_lineas_produccion(None, 0, []))
-            st.caption("Cargadores confirmados: CP31, CP32, CP30 y CP29 · Rueda para acercar, arrastra para explorar.")
+            st.caption("Cargadores confirmados: CP31, CP28, CP32, CP30 y CP29 · Rueda para acercar, arrastra para explorar.")
             st.info("Ejecuta primero un escenario en Dimensionamiento para visualizarlo en 2D.")
             return
         estado = estado_en_instante(resultado, reloj["tiempo_s"], mapa)
@@ -435,6 +459,39 @@ def mostrar_2d():
             st.markdown("**Misiones activas**")
             tabla_operativa([{"Misión":x["mision"],"AGV":x["agv"],"Pallet":x["pallet_asignado"],"Origen":nombre_nodo(x["origen"]),"Destino":nombre_nodo(x["destino"]),"Estado":x["estado"]}
                 for x in estado["flota"] if x["mision"] != "—"], "Sin misiones activas")
+
+        st.markdown("### Inventario en tránsito")
+        st.caption(
+            "El gestor convierte automáticamente cada retiro de producto terminado en un registro digital "
+            "desde que se genera la solicitud hasta su entrega en Almacén. El evento final queda listo para "
+            "una futura interfaz con WMS/SAP; el prototipo no afirma conexión directa con los sistemas de Nestlé."
+        )
+        inventario = registros_inventario(resultado, estado["tiempo_s"])
+        eventos_wms = eventos_inventario(resultado, estado["tiempo_s"])
+        pendientes_inv = sum(r["estado"] == "PENDIENTE" for r in inventario)
+        transito_inv = sum(r["estado"] == "EN TRÁNSITO" for r in inventario)
+        entregados_inv = sum(r["estado"] == "ENTREGADO" for r in inventario)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Pendientes de traslado", pendientes_inv)
+        c2.metric("En tránsito", transito_inv)
+        c3.metric("Entregados al Almacén", entregados_inv)
+        tabla_operativa([
+            {
+                "Pallet": r["id_pallet"],
+                "Origen": r["origen"],
+                "Destino": r["destino"],
+                "Estado": r["estado"],
+                "AGV": r["agv"],
+                "Última actualización": r["ultima_actualizacion"],
+            }
+            for r in inventario[:10]
+        ], "Aún no se han generado solicitudes de retiro de producto terminado")
+        if len(inventario) > 10:
+            st.caption(f"Últimos 10 de {len(inventario)} pallets con registro digital generado.")
+        if eventos_wms:
+            with st.expander("Último evento listo para WMS/SAP", expanded=False):
+                st.json(eventos_wms[-1], expanded=True)
+
         with st.expander("Explorar instante y detalle",expanded=False):
             instante=st.number_input("Instante simulado (s)",min_value=0.,max_value=float(resultado["kpis"]["tiempo_total_s"]),value=0.,key="instante_2d")
             if st.button("Ver instante y pausar",key="buscar_2d"):

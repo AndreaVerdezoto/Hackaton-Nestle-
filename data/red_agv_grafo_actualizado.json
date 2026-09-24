@@ -751,6 +751,22 @@
       "y": -13.885682,
       "z": 0.0,
       "nombre_amigable": ""
+    },
+    {
+      "id": "X_Ruta15_CP28",
+      "tipo": "interseccion",
+      "x": 4.503305,
+      "y": -9.368231,
+      "z": 0.0,
+      "nombre_amigable": ""
+    },
+    {
+      "id": "ControlPoint28",
+      "tipo": "punto_control",
+      "x": 4.503305,
+      "y": -8.345355,
+      "z": 0.0,
+      "nombre_amigable": ""
     }
   ],
   "aristas": [
@@ -876,8 +892,16 @@
     },
     {
       "origen": "X_Ruta14_1",
+      "destino": "X_Ruta15_CP28",
+      "distancia_m": 0.583635,
+      "bidireccional": false,
+      "ruta_flexsim": "Ruta15",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta15_CP28",
       "destino": "X_Ruta15_2",
-      "distancia_m": 1.823858,
+      "distancia_m": 1.240223,
       "bidireccional": false,
       "ruta_flexsim": "Ruta15",
       "tipo_ruta": "recta"
@@ -1616,6 +1640,14 @@
       "distancia_m": 0.413999,
       "bidireccional": true,
       "ruta_flexsim": "Ruta51",
+      "tipo_ruta": "recta"
+    },
+    {
+      "origen": "X_Ruta15_CP28",
+      "destino": "ControlPoint28",
+      "distancia_m": 1.018284,
+      "bidireccional": true,
+      "ruta_flexsim": "Ruta62",
       "tipo_ruta": "recta"
     }
   ]
