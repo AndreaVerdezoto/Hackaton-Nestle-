@@ -27,6 +27,25 @@ def avanzar_reloj(reloj, ahora, limite):
     reloj["marca"] = ahora
 
 
+
+
+def proxima_recarga(resultado, desde_s):
+    """Devuelve la próxima salida hacia un cargador a partir del instante dado."""
+    if not resultado:
+        return None
+    recargas = [r for lista in resultado.get("recargas", {}).values() for r in lista]
+    futuras = [r for r in recargas if r["inicio_s"] >= desde_s - 1e-9]
+    return min(futuras, key=lambda r: (r["inicio_s"], r["agv"])) if futuras else None
+
+
+def instante_viajando_a_cargador(recarga):
+    """Punto intermedio del viaje para mostrar al AGV ya en ruta, no estacionado."""
+    duracion = max(0.0, recarga["llegada_s"] - recarga["inicio_s"])
+    if duracion <= 0:
+        return recarga["inicio_s"]
+    # 25 % del trayecto: claramente salió, pero todavía no llegó al cargador.
+    return recarga["inicio_s"] + min(max(duracion * 0.25, 0.1), max(0.1, duracion - 0.1))
+
 def nombre_nodo(nodo):
     return {
         # Pallet Transit: un punto de parada a cada lado de cada estación.
@@ -314,9 +333,9 @@ def mostrar_2d():
         reloj = st.session_state.setdefault("reloj_2d", {"tiempo_s": 0., "marca": time.monotonic(), "ejecutando": False, "velocidad": 1})
         if resultado:
             avanzar_reloj(reloj, time.monotonic(), resultado["kpis"]["tiempo_total_s"])
-        controles = st.columns([1,1,1,1,1,1])
+        controles = st.columns([1,1,1,1,1,1.2,1])
         cantidad = controles[0].selectbox("AGV", [2,3,4,5], index=1, key="n_2d")
-        velocidad = controles[1].selectbox("Velocidad", [1,2,5,10], format_func=lambda n:f"×{n}", key="vel_2d")
+        velocidad = controles[1].selectbox("Velocidad", [1,2,5,10,20,50], format_func=lambda n:f"×{n}", key="vel_2d")
         reloj["velocidad"] = velocidad
         if controles[2].button("Iniciar", key="iniciar_2d", type="primary", disabled=resultado is not None):
             try:
@@ -331,8 +350,24 @@ def mostrar_2d():
             reloj["ejecutando"] = False
         if controles[4].button("Reanudar", disabled=resultado is None or reloj["ejecutando"], key="reanudar_2d"):
             reloj.update(ejecutando=True, marca=time.monotonic())
-        if controles[5].button("Reiniciar", key="reset_2d"):
+        if controles[5].button("Ir a recarga", disabled=resultado is None, key="ir_recarga_2d", help="Salta al próximo instante en que un AGV ya va camino al cargador."):
+            recarga = proxima_recarga(resultado, reloj["tiempo_s"] + 0.01)
+            if recarga is not None:
+                reloj.update(
+                    tiempo_s=instante_viajando_a_cargador(recarga),
+                    ejecutando=False,
+                    marca=time.monotonic(),
+                )
+                st.session_state["ruta_2d"] = recarga["agv"]
+                st.session_state["salto_recarga_2d"] = (
+                    f"{recarga['agv']} va hacia {nombre_nodo(recarga['destino'])}"
+                )
+                st.rerun(scope="fragment")
+            else:
+                st.session_state["salto_recarga_2d"] = "No quedan salidas a recarga después de este instante."
+        if controles[6].button("Reiniciar", key="reset_2d"):
             st.session_state.pop("resultado_2d", None)
+            st.session_state.pop("salto_recarga_2d", None)
             reloj.update(tiempo_s=0., ejecutando=False, marca=time.monotonic())
             resultado = None
         mapa = cargar_mapa()
@@ -342,6 +377,8 @@ def mostrar_2d():
             return
         estado = estado_en_instante(resultado, reloj["tiempo_s"], mapa)
         st.caption(f"Tiempo simulado: {horas_minutos(estado['tiempo_s'])} · {'EN MARCHA' if reloj['ejecutando'] else 'PAUSADA / FINALIZADA'} · {resultado['numero_agv']} AGV")
+        if st.session_state.get("salto_recarga_2d"):
+            st.caption("⚡ " + st.session_state["salto_recarga_2d"])
         if cantidad != resultado["numero_agv"]:
             st.caption("Reinicia e inicia para aplicar otra cantidad de AGV.")
         for col,(nombre,valor) in zip(st.columns(4),[("Pallets completados",estado["completados"]),
