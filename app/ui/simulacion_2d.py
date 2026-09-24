@@ -324,8 +324,6 @@ def tabla_operativa(filas, mensaje):
 
 @st.fragment(run_every=0.2)
 def mostrar_2d():
-    if st.session_state.get("modo_principal") != "Simulación 2D":
-        return
     with st.container(key="vista2d"):
         st.html('<style>'+ (COMPONENTES / "estilos_2d.css").read_text(encoding="utf-8") +'</style>')
         st.html('<div class="control-cabecera"><div><div class="eyebrow">INTRALOGÍSTICA · CONTROL DE FLOTA</div><h2>Centro de operaciones AGV</h2><p>Producto terminado · 215 pallets por turno · Simulación 2D</p></div><div class="marca-reservada" aria-label="Espacio reservado para el logo de Nestlé">Nestlé<small>ESPACIO PARA LOGO</small></div></div>')
