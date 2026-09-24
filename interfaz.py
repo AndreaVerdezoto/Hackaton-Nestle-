@@ -1,10 +1,9 @@
-"""Entrada Streamlit. Solo se ejecuta el contenido de la pestaña seleccionada."""
+"""Entrada Streamlit organizada por secciones ejecutivas."""
 import streamlit as st
 
 st.set_page_config(page_title="Dimensionamiento de flota AGV", page_icon="🤖", layout="wide")
 
-# Identidad visual global: se carga en ambos modos para que la interfaz no
-# cambie de tema al pasar de Análisis de flota a Simulación 2D.
+# Identidad visual global.
 st.html("""
 <style>
 [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
@@ -33,17 +32,32 @@ st.html("""
 
 
 
-# Navegación compatible entre Windows/macOS y distintas versiones de navegador.
-# No dependemos del estado interno de st.tabs para decidir qué contenido construir.
-analisis, visual = st.tabs(["Análisis de flota", "Simulación 2D"])
+st.session_state.setdefault("modo_principal", "Dimensionamiento")
 
-with analisis:
-    from app.ui.analisis_panel import mostrar_analisis
-    mostrar_analisis()
+dimensionamiento, resultados, simulacion, rentabilidad, metodologia = st.tabs([
+    "Dimensionamiento", "Resultados", "Simulación 2D", "Rentabilidad", "Metodología"
+])
 
-with visual:
+from app.ui.analisis_panel import (
+    mostrar_dimensionamiento, mostrar_resultados,
+    mostrar_rentabilidad, mostrar_metodologia,
+)
+
+with dimensionamiento:
+    mostrar_dimensionamiento()
+
+with resultados:
+    mostrar_resultados()
+
+with simulacion:
     from app.ui.simulacion_2d import mostrar_2d
     mostrar_2d()
+
+with rentabilidad:
+    mostrar_rentabilidad()
+
+with metodologia:
+    mostrar_metodologia()
 
 from app.ui.nestor_panel import mostrar_nestor_flotante
 mostrar_nestor_flotante()

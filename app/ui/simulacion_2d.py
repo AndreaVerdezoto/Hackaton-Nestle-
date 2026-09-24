@@ -8,8 +8,7 @@ import streamlit.components.v1 as components
 COMPONENTES = Path(__file__).parent / "componentes"
 _mapa_interactivo = components.declare_component("mapa_agv_2d", path=str(COMPONENTES / "mapa_2d"))
 
-from app.models.bateria import CARGADORES, VELOCIDAD_REFERENCIA_MS, CARGA_PALLET_S, DESCARGA_PALLET_S
-from app.services.simulador_flota import SimuladorFlota, ParametrosSimulacion
+from app.models.bateria import CARGADORES
 from app.services.estado_visual import cargar_mapa, estado_en_instante
 
 
@@ -322,33 +321,51 @@ def tabla_operativa(filas, mensaje):
     st.html(f'<div class="tabla-operativa"><table><thead><tr>{cabecera}</tr></thead><tbody>{cuerpo}</tbody></table></div>')
 
 
+def _escenario_2d():
+    historial = st.session_state.get("escenarios_simulados", [])
+    if not historial:
+        return None
+    ids = [e["id"] for e in historial]
+    activo = st.session_state.get("escenario_activo")
+    if activo not in ids:
+        activo = ids[-1]
+    if st.session_state.get("escenario_2d") not in ids:
+        st.session_state["escenario_2d"] = activo
+    etiquetas = {e["id"]: f"Corrida {i+1} · {e['resultado']['numero_agv']} AGV"
+                 for i, e in enumerate(historial)}
+    def sincronizar():
+        st.session_state["escenario_activo"] = st.session_state["escenario_2d"]
+    elegido = st.selectbox(
+        "Escenario para visualización 2D",
+        ids,
+        format_func=etiquetas.get,
+        key="escenario_2d",
+        on_change=sincronizar,
+    )
+    return next(e for e in historial if e["id"] == elegido)
+
+
 @st.fragment(run_every=0.2)
 def mostrar_2d():
     with st.container(key="vista2d"):
         st.html('<style>'+ (COMPONENTES / "estilos_2d.css").read_text(encoding="utf-8") +'</style>')
         st.html('<div class="control-cabecera"><div><div class="eyebrow">INTRALOGÍSTICA · CONTROL DE FLOTA</div><h2>Centro de operaciones AGV</h2><p>Producto terminado · 215 pallets por turno · Simulación 2D</p></div><div class="marca-reservada" aria-label="Espacio reservado para el logo de Nestlé">Nestlé<small>ESPACIO PARA LOGO</small></div></div>')
-        resultado = st.session_state.get("resultado_2d")
+        escenario = _escenario_2d()
+        resultado = escenario["resultado"] if escenario else None
         reloj = st.session_state.setdefault("reloj_2d", {"tiempo_s": 0., "marca": time.monotonic(), "ejecutando": False, "velocidad": 1})
+        if escenario and st.session_state.get("escenario_2d_activo") != escenario["id"]:
+            st.session_state["escenario_2d_activo"] = escenario["id"]
+            reloj.update(tiempo_s=0., marca=time.monotonic(), ejecutando=False)
         if resultado:
             avanzar_reloj(reloj, time.monotonic(), resultado["kpis"]["tiempo_total_s"])
-        controles = st.columns([1,1,1,1,1,1.2,1])
-        cantidad = controles[0].selectbox("AGV", [2,3,4,5], index=1, key="n_2d")
-        velocidad = controles[1].selectbox("Velocidad", [1,2,5,10,20,50], format_func=lambda n:f"×{n}", key="vel_2d")
+        controles = st.columns([1, 1, 1.2, 1])
+        velocidad = controles[0].selectbox("Velocidad", [1,2,5,10,20,50], format_func=lambda n:f"×{n}", key="vel_2d")
         reloj["velocidad"] = velocidad
-        if controles[2].button("Iniciar", key="iniciar_2d", type="primary", disabled=resultado is not None):
-            try:
-                p = ParametrosSimulacion(velocidad_maxima_ms=VELOCIDAD_REFERENCIA_MS,
-                    tiempo_carga_s=CARGA_PALLET_S, tiempo_descarga_s=DESCARGA_PALLET_S)
-                resultado = SimuladorFlota(p).ejecutar(cantidad, simular_bateria=True, cargadores=CARGADORES)
-                st.session_state.resultado_2d = resultado
-                reloj.update(tiempo_s=0., marca=time.monotonic(), ejecutando=True)
-            except (ValueError, RuntimeError) as exc:
-                st.error(str(exc))
-        if controles[3].button("Pausar", disabled=not reloj["ejecutando"], key="pausa_2d"):
+        if controles[1].button("Pausar", disabled=not reloj["ejecutando"], key="pausa_2d"):
             reloj["ejecutando"] = False
-        if controles[4].button("Reanudar", disabled=resultado is None or reloj["ejecutando"], key="reanudar_2d"):
+        if controles[2].button("Reanudar", disabled=resultado is None or reloj["ejecutando"], key="reanudar_2d"):
             reloj.update(ejecutando=True, marca=time.monotonic())
-        if controles[5].button("Ir a recarga", disabled=resultado is None, key="ir_recarga_2d", help="Salta al próximo instante en que un AGV ya va camino al cargador."):
+        if controles[3].button("Ir a recarga", disabled=resultado is None or not resultado.get("recargas"), key="ir_recarga_2d", help="Salta al próximo instante en que un AGV ya va camino al cargador."):
             recarga = proxima_recarga(resultado, reloj["tiempo_s"] + 0.01)
             if recarga is not None:
                 reloj.update(
@@ -363,22 +380,19 @@ def mostrar_2d():
                 st.rerun(scope="fragment")
             else:
                 st.session_state["salto_recarga_2d"] = "No quedan salidas a recarga después de este instante."
-        if controles[6].button("Reiniciar", key="reset_2d"):
-            st.session_state.pop("resultado_2d", None)
+        if st.button("Reiniciar reloj", key="reset_2d"):
             st.session_state.pop("salto_recarga_2d", None)
             reloj.update(tiempo_s=0., ejecutando=False, marca=time.monotonic())
-            resultado = None
         mapa = cargar_mapa()
         if resultado is None:
             mostrar_mapa(mapa, [], None, estado_lineas_produccion(None, 0, []))
             st.caption("Cargadores confirmados: CP31, CP32, CP30 y CP29 · Rueda para acercar, arrastra para explorar.")
+            st.info("Ejecuta primero un escenario en Dimensionamiento para visualizarlo en 2D.")
             return
         estado = estado_en_instante(resultado, reloj["tiempo_s"], mapa)
         st.caption(f"Tiempo simulado: {horas_minutos(estado['tiempo_s'])} · {'EN MARCHA' if reloj['ejecutando'] else 'PAUSADA / FINALIZADA'} · {resultado['numero_agv']} AGV")
         if st.session_state.get("salto_recarga_2d"):
             st.caption("⚡ " + st.session_state["salto_recarga_2d"])
-        if cantidad != resultado["numero_agv"]:
-            st.caption("Reinicia e inicia para aplicar otra cantidad de AGV.")
         for col,(nombre,valor) in zip(st.columns(4),[("Pallets completados",estado["completados"]),
                 ("Solicitudes pendientes",len(estado["pendientes"])),("Misiones activas",len(estado["activas"])),
                 ("Utilización en misiones",f"{estado['utilizacion_pct']:.0f} %")]):
