@@ -57,7 +57,7 @@ def estado_en_instante(resultado, tiempo_s, mapa=None):
         tareas = [(m["inicio_s"], "mision", m) for m in propios if m["inicio_s"] <= t]
         tareas += [(r["inicio_s"], "recarga", r) for r in recargas if r["inicio_s"] <= t]
         item = {"agv": nombre, "estado": "DISPONIBLE", "destino": "—", "origen": "—", "pallet": "—", "pallet_asignado": "—", "mision": "—",
-                "posicion": nodos[p["ubicacion_inicial"]], "ruta": []}
+                "tipo_mision": None, "posicion": nodos[p["ubicacion_inicial"]], "ruta": []}
         if tareas:
             _, tipo, tarea = max(tareas, key=lambda q: q[0])
             item["posicion"] = nodos[tarea["destino"]]
@@ -76,18 +76,27 @@ def estado_en_instante(resultado, tiempo_s, mapa=None):
                     item["mision"] = f"M-{tarea['numero']:03d}"
                     item["origen"] = tarea["origen"]
                     item["pallet_asignado"] = tarea["id_pallet"]
+                    item["tipo_mision"] = tarea["tipo"]
                     local = t-tarea["inicio_s"]
-                    fases = [("VIAJANDO_A_RECOGIDA", tarea["vacio"]["tiempo_s"], "vacio"),
-                             ("ESPERANDO_PRODUCTO", tarea["espera_disponibilidad_s"], None),
-                             ("CARGANDO_PALLET", tarea["carga_s"], None),
-                             ("TRANSPORTANDO", tarea["cargado"]["tiempo_s"], "cargado"),
-                             ("DESCARGANDO_PALLET", tarea["descarga_s"], None)]
+                    if tarea["tipo"] == "suministro":
+                        fases = [("VIAJANDO_A_RECOGIDA", tarea["vacio"]["tiempo_s"], "vacio"),
+                                 ("CARGANDO_MATERIAL", tarea["carga_s"], None),
+                                 ("SUMINISTRANDO_LINEA", tarea["cargado"]["tiempo_s"], "cargado"),
+                                 ("DESCARGANDO_MATERIAL", tarea["descarga_s"], None)]
+                        estados_con_carga = {"CARGANDO_MATERIAL", "SUMINISTRANDO_LINEA", "DESCARGANDO_MATERIAL"}
+                    else:
+                        fases = [("VIAJANDO_A_RECOGIDA", tarea["vacio"]["tiempo_s"], "vacio"),
+                                 ("CARGANDO_PALLET", tarea["carga_s"], None),
+                                 ("TRANSPORTANDO", tarea["cargado"]["tiempo_s"], "cargado"),
+                                 ("DESCARGANDO_PALLET", tarea["descarga_s"], None)]
+                        estados_con_carga = {"CARGANDO_PALLET", "TRANSPORTANDO", "DESCARGANDO_PALLET"}
                     for estado, duracion, viaje in fases:
                         if local < duracion:
                             item["estado"] = estado
-                            item["posicion"] = posicion(tarea[viaje], local, p, mapa) if viaje else nodos[tarea["destino"] if estado == "DESCARGANDO_PALLET" else tarea["origen"]]
+                            es_descarga = estado in ("DESCARGANDO_PALLET", "DESCARGANDO_MATERIAL")
+                            item["posicion"] = posicion(tarea[viaje], local, p, mapa) if viaje else nodos[tarea["destino"] if es_descarga else tarea["origen"]]
                             item["ruta"] = tarea[viaje]["ruta"] if viaje else []
-                            item["pallet"] = tarea["id_pallet"] if estado in ("CARGANDO_PALLET", "TRANSPORTANDO", "DESCARGANDO_PALLET") else "—"
+                            item["pallet"] = tarea["id_pallet"] if estado in estados_con_carga else "—"
                             if estado == "VIAJANDO_A_RECOGIDA":
                                 item["destino"] = tarea["origen"]
                             break

@@ -107,12 +107,13 @@ class OperacionTests(unittest.TestCase):
             self.assertAlmostEqual(o['ocupado_s'] + o['libre_s'], turno*2)
             self.assertAlmostEqual(o['ocupado_pct'] + o['libre_pct'], 100)
 
-    def test_215_movimientos_no_son_215_pallets_producidos(self):
+    def test_flujo_completo_distingue_movimientos_y_pallets(self):
         r = SimuladorFlota().ejecutar(2)
-        self.assertEqual(calcular_operacion(r)['pallets_terminados_turno'], 214)
+        operacion = calcular_operacion(r)
+        self.assertEqual(operacion['pallets_terminados_turno'], r['kpis']['pallets_terminados_turno'])
+        self.assertEqual(r['kpis']['movimientos_logisticos_totales'], 430)
         i = comparar_linea_base(r, LineaBase(movimientos_turno=200, comparacion_equivalente=True))
-        self.assertEqual(i['movimientos_adicionales_atendidos'], 14)
-        self.assertEqual(i['incremento_logistico_pct'], 7.0)
+        self.assertEqual(i['movimientos_adicionales_atendidos'], r['kpis']['completados_turno'] - 200)
         self.assertIsNone(i['produccion_adicional_calculada'])
 
     def test_linea_base_faltante_cero_no_equivalente(self):

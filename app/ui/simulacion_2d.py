@@ -82,66 +82,74 @@ LINEAS_VISUALES = {
 
 
 def estado_lineas_produccion(resultado, tiempo_s, flota):
-    """Estado visual de las líneas usando la agenda ya calculada por la simulación.
+    """Representa la producción real encadenada del resultado del simulador.
 
-    Es solo presentación: no añade tiempos ni cambia la lógica de producción,
-    misiones, rutas o asignación de AGV.
+    La producción comienza cuando terminó la entrega de material a la línea y
+    finaliza en el instante registrado en ``resultado["producciones"]``.
     """
-    base = {linea: {"estado": "ESPERA", "progreso": None, "pallet": "—"}
+    base = {linea: {"estado": "ESPERA MATERIAL", "progreso": None, "pallet": "—"}
             for linea in LINEAS_VISUALES}
     if not resultado:
         return base
 
     t = max(0.0, float(tiempo_s))
+    movimientos_pt = {
+        m["id_pallet"]: m for m in resultado["movimientos"]
+        if m["tipo"] == "producto_terminado"
+    }
     por_linea = {}
     for linea, datos in LINEAS_VISUALES.items():
-        tareas = sorted(
-            (m for m in resultado["movimientos"]
-             if m["tipo"] == "producto_terminado" and m["linea"] == linea),
-            key=lambda m: m["llegada_s"],
+        producciones = sorted(
+            (x for x in resultado.get("producciones", []) if x["linea"] == linea),
+            key=lambda x: x["inicio_s"],
         )
-        if not tareas:
+        if not producciones:
             por_linea[linea] = base[linea]
             continue
 
-        # Un pallet está listo desde que aparece en la agenda hasta que termina
-        # la carga al AGV. Si hay cola, permanece visible en el fin de línea.
-        listos = []
-        for m in tareas:
-            fin_recogida = (m["inicio_s"] + m["vacio"]["tiempo_s"] +
-                            m["espera_disponibilidad_s"] + m["carga_s"])
-            if m["llegada_s"] <= t < fin_recogida:
-                listos.append(m)
-
-        agv_cargando = next((a for a in flota
-                             if a["origen"] == datos["fin"] and
-                             a["estado"] == "CARGANDO_PALLET"), None)
-        if listos:
-            actual = listos[0]
+        # Si existe un pallet terminado esperando o siendo cargado, permanece
+        # visible en el final de línea hasta que el AGV termina de recogerlo.
+        esperando = []
+        for prod in producciones:
+            if prod["fin_s"] > t:
+                continue
+            retiro = movimientos_pt.get(prod["id_pallet"])
+            if retiro is None:
+                esperando.append((prod, None))
+                continue
+            fin_recogida = retiro["inicio_s"] + retiro["vacio"]["tiempo_s"] + retiro["carga_s"]
+            if t < fin_recogida:
+                esperando.append((prod, retiro))
+        if esperando:
+            prod, retiro = esperando[0]
+            recogiendo = False
+            if retiro is not None:
+                inicio_carga = retiro["inicio_s"] + retiro["vacio"]["tiempo_s"]
+                fin_carga = inicio_carga + retiro["carga_s"]
+                recogiendo = inicio_carga <= t < fin_carga
             por_linea[linea] = {
-                "estado": "RECOGIENDO" if agv_cargando else "LISTO",
+                "estado": "RECOGIENDO" if recogiendo else "LISTO",
                 "progreso": 1.0,
-                "pallet": actual["id_pallet"],
+                "pallet": prod["id_pallet"],
             }
             continue
 
-        # Entre dos llegadas de producto terminado, el siguiente pallet se
-        # representa avanzando suavemente por la banda. Es una visualización
-        # del ciclo ya programado, no un nuevo modelo de proceso.
-        siguiente_i = next((i for i, m in enumerate(tareas) if m["llegada_s"] > t), None)
-        if siguiente_i is None:
-            por_linea[linea] = {"estado": "COMPLETO", "progreso": None, "pallet": "—"}
+        activa = next((prod for prod in producciones if prod["inicio_s"] <= t < prod["fin_s"]), None)
+        if activa is not None:
+            duracion = activa["fin_s"] - activa["inicio_s"]
+            progreso = 1.0 if duracion <= 0 else (t - activa["inicio_s"]) / duracion
+            por_linea[linea] = {
+                "estado": "PRODUCIENDO",
+                "progreso": max(0.0, min(1.0, progreso)),
+                "pallet": activa["id_pallet"],
+            }
             continue
 
-        siguiente = tareas[siguiente_i]
-        inicio = tareas[siguiente_i - 1]["llegada_s"] if siguiente_i else 0.0
-        fin = siguiente["llegada_s"]
-        progreso = 0.0 if fin <= inicio else max(0.0, min(1.0, (t - inicio) / (fin - inicio)))
-        por_linea[linea] = {
-            "estado": "PRODUCIENDO",
-            "progreso": progreso,
-            "pallet": siguiente["id_pallet"],
-        }
+        futuras = [prod for prod in producciones if prod["inicio_s"] > t]
+        if futuras:
+            por_linea[linea] = {"estado": "ESPERA MATERIAL", "progreso": None, "pallet": "—"}
+        else:
+            por_linea[linea] = {"estado": "COMPLETO", "progreso": None, "pallet": "—"}
 
     return por_linea
 
@@ -173,7 +181,7 @@ def lineas_produccion_svg(nodos, xy, estados_linea=None):
         elif nombre_estado == "COMPLETO":
             texto_estado, color_estado_linea = "COMPLETO", "#64748b"
         else:
-            texto_estado, color_estado_linea = "ESPERA", "#8b98a8"
+            texto_estado, color_estado_linea = "ESPERA MATERIAL", "#8b98a8"
 
         partes.append(f'<line x1="{x+5}" y1="{y}" x2="{bx}" y2="{y}" stroke="#aeb9c6" stroke-width="2"/>')
         partes.append(f'<rect x="{bx}" y="{by}" width="{bw}" height="{bh}" rx="10" fill="#ffffff" stroke="#dfe5eb" stroke-width="1.2"/>')
@@ -282,7 +290,11 @@ def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
             partes.append(f'<circle cx="0" cy="0" r="23" fill="none" stroke="{color}" stroke-opacity=".45" stroke-width="1.5"/>')
         partes.append(f'<rect x="-13" y="-9" rx="4" width="26" height="18" fill="{color}" stroke="white" stroke-width="2"/><rect x="-7" y="-5" width="8" height="10" rx="2" fill="white" fill-opacity=".8"/>')
         if a["pallet"] != "—":
-            partes.append('<rect x="2" y="-4" width="8" height="8" rx="1" fill="#f0c47d"/>')
+            if a.get("tipo_mision") == "suministro":
+                partes.append('<rect x="1" y="-5" width="10" height="10" rx="2" fill="#8aa4b8" stroke="#5f788d" stroke-width="1"/>')
+                partes.append('<text x="6" y="2.5" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="800" fill="white">M</text>')
+            else:
+                partes.append('<rect x="2" y="-4" width="8" height="8" rx="1" fill="#f0c47d" stroke="#bd8540" stroke-width=".8"/>')
         partes.append(f'<path d="M0,-11 L30,{label_y+12}" stroke="{color}" stroke-opacity=".6"/><rect x="7" y="{label_y-7}" width="79" height="23" rx="5" fill="white" stroke="{color}" stroke-width="1.2"/><text x="15" y="{label_y+9}" font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="{color}">{html.escape(a["agv"])}</text>')
         partes.append('</g>')
     partes.append('</svg>')
@@ -365,21 +377,23 @@ def mostrar_2d():
             reloj["ejecutando"] = False
         if controles[2].button("Reanudar", disabled=resultado is None or reloj["ejecutando"], key="reanudar_2d"):
             reloj.update(ejecutando=True, marca=time.monotonic())
-        if controles[3].button("Ir a recarga", disabled=resultado is None or not resultado.get("recargas"), key="ir_recarga_2d", help="Salta al próximo instante en que un AGV ya va camino al cargador."):
-            recarga = proxima_recarga(resultado, reloj["tiempo_s"] + 0.01)
-            if recarga is not None:
-                reloj.update(
-                    tiempo_s=instante_viajando_a_cargador(recarga),
-                    ejecutando=False,
-                    marca=time.monotonic(),
-                )
-                st.session_state["ruta_2d"] = recarga["agv"]
-                st.session_state["salto_recarga_2d"] = (
-                    f"{recarga['agv']} va hacia {nombre_nodo(recarga['destino'])}"
-                )
-                st.rerun(scope="fragment")
-            else:
-                st.session_state["salto_recarga_2d"] = "No quedan salidas a recarga después de este instante."
+        recarga_disponible = proxima_recarga(resultado, reloj["tiempo_s"] + 0.01) if resultado else None
+        if controles[3].button(
+            "Ir a recarga",
+            disabled=recarga_disponible is None,
+            key="ir_recarga_2d",
+            help="Salta al próximo instante en que un AGV ya va camino al cargador.",
+        ):
+            reloj.update(
+                tiempo_s=instante_viajando_a_cargador(recarga_disponible),
+                ejecutando=False,
+                marca=time.monotonic(),
+            )
+            st.session_state["ruta_2d"] = recarga_disponible["agv"]
+            st.session_state["salto_recarga_2d"] = (
+                f"{recarga_disponible['agv']} va hacia {nombre_nodo(recarga_disponible['destino'])}"
+            )
+            st.rerun(scope="fragment")
         if st.button("Reiniciar reloj", key="reset_2d"):
             st.session_state.pop("salto_recarga_2d", None)
             reloj.update(tiempo_s=0., ejecutando=False, marca=time.monotonic())
