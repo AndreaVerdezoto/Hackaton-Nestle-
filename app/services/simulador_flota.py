@@ -10,6 +10,7 @@ import math
 from pathlib import Path
 
 from app.models.solicitud import SolicitudTraslado, PrioridadSolicitud
+from app.models.bateria import VELOCIDAD_REFERENCIA_MS
 from app.services.gestor_flota import GestorFlota
 from app.services.indicadores_capacidad import calcular_capacidad
 
@@ -59,7 +60,7 @@ class ParametrosSimulacion:
     # Compatibilidad de serialización. En el flujo encadenado siempre es 1:1 con pallets_terminados.
     movimientos_suministro: int | None = None
     duracion_turno_s: float = 28800.0
-    velocidad_maxima_ms: float = 2.0
+    velocidad_maxima_ms: float = VELOCIDAD_REFERENCIA_MS
     aceleracion_ms2: float = 1.0
     desaceleracion_ms2: float = 1.0
     tiempo_carga_s: float = 30.0

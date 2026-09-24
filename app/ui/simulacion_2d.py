@@ -377,21 +377,23 @@ def mostrar_2d():
             reloj["ejecutando"] = False
         if controles[2].button("Reanudar", disabled=resultado is None or reloj["ejecutando"], key="reanudar_2d"):
             reloj.update(ejecutando=True, marca=time.monotonic())
-        if controles[3].button("Ir a recarga", disabled=resultado is None or not resultado.get("recargas"), key="ir_recarga_2d", help="Salta al próximo instante en que un AGV ya va camino al cargador."):
-            recarga = proxima_recarga(resultado, reloj["tiempo_s"] + 0.01)
-            if recarga is not None:
-                reloj.update(
-                    tiempo_s=instante_viajando_a_cargador(recarga),
-                    ejecutando=False,
-                    marca=time.monotonic(),
-                )
-                st.session_state["ruta_2d"] = recarga["agv"]
-                st.session_state["salto_recarga_2d"] = (
-                    f"{recarga['agv']} va hacia {nombre_nodo(recarga['destino'])}"
-                )
-                st.rerun(scope="fragment")
-            else:
-                st.session_state["salto_recarga_2d"] = "No quedan salidas a recarga después de este instante."
+        recarga_disponible = proxima_recarga(resultado, reloj["tiempo_s"] + 0.01) if resultado else None
+        if controles[3].button(
+            "Ir a recarga",
+            disabled=recarga_disponible is None,
+            key="ir_recarga_2d",
+            help="Salta al próximo instante en que un AGV ya va camino al cargador.",
+        ):
+            reloj.update(
+                tiempo_s=instante_viajando_a_cargador(recarga_disponible),
+                ejecutando=False,
+                marca=time.monotonic(),
+            )
+            st.session_state["ruta_2d"] = recarga_disponible["agv"]
+            st.session_state["salto_recarga_2d"] = (
+                f"{recarga_disponible['agv']} va hacia {nombre_nodo(recarga_disponible['destino'])}"
+            )
+            st.rerun(scope="fragment")
         if st.button("Reiniciar reloj", key="reset_2d"):
             st.session_state.pop("salto_recarga_2d", None)
             reloj.update(tiempo_s=0., ejecutando=False, marca=time.monotonic())

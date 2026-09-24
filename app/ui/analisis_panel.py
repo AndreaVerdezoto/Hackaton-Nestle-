@@ -4,6 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from app.models.bateria import CARGADORES, VELOCIDAD_REFERENCIA_MS
 from app.services.simulador_flota import (
     ParametrosSimulacion, SimuladorFlota,
     exportar_json, SUPUESTOS, LIMITACIONES, VERSION_MODELO,
@@ -37,6 +38,8 @@ def mostrar_analisis():
 def _inicializar_parametros():
     for nombre, valor in BASE.items():
         st.session_state.setdefault(f"ana_{nombre}", valor)
+    # La referencia del prototipo es fija: 1 m/s. Evita conservar 2 m/s de sesiones anteriores.
+    st.session_state["ana_velocidad_maxima_ms"] = VELOCIDAD_REFERENCIA_MS
 
 
 def _valores_parametros():
@@ -45,10 +48,11 @@ def _valores_parametros():
 
 def _historial_vigente():
     historial = st.session_state.setdefault("escenarios_simulados", [])
-    antiguos = [e for e in historial if e["resultado"].get("version_modelo") != VERSION_MODELO]
+    versiones_vigentes = {VERSION_MODELO, VERSION_MODELO + "_bateria"}
+    antiguos = [e for e in historial if e["resultado"].get("version_modelo") not in versiones_vigentes]
     if antiguos:
         st.session_state.setdefault("escenarios_obsoletos", []).extend(antiguos)
-        historial[:] = [e for e in historial if e["resultado"].get("version_modelo") == VERSION_MODELO]
+        historial[:] = [e for e in historial if e["resultado"].get("version_modelo") in versiones_vigentes]
         st.session_state.pop("escenario_activo", None)
     return historial
 
@@ -83,13 +87,19 @@ def mostrar_dimensionamiento():
     principales = [
         ("pallets_terminados", "Pallets terminados por turno", 1, "Demanda de producto terminado del escenario."),
         ("duracion_turno_s", "Duración del turno (s)", 1.0, "28800 segundos equivalen a 8 horas."),
-        ("velocidad_maxima_ms", "Velocidad máxima (m/s)", 0.01, "Velocidad límite del AGV."),
+        ("velocidad_maxima_ms", "Velocidad máxima (m/s)", 0.01, "Referencia fija del prototipo: 1 m/s."),
         ("tiempo_carga_s", "Carga (s)", 0.0, "Tiempo por pallet."),
         ("tiempo_descarga_s", "Descarga (s)", 0.0, "Tiempo por pallet."),
     ]
     for i, (campo, etiqueta, minimo, ayuda) in enumerate(principales):
         with columnas[i % 3]:
-            st.number_input(etiqueta, min_value=minimo, key=f"ana_{campo}", help=ayuda)
+            st.number_input(
+                etiqueta,
+                min_value=minimo,
+                key=f"ana_{campo}",
+                help=ayuda,
+                disabled=campo == "velocidad_maxima_ms",
+            )
 
     with st.expander("Parámetros avanzados", expanded=False):
         izquierda, derecha = st.columns(2)
@@ -120,7 +130,9 @@ def mostrar_dimensionamiento():
     historial = _historial_vigente()
     if st.button("Simular escenario", type="primary", width="stretch"):
         try:
-            resultado = SimuladorFlota(ParametrosSimulacion(**valores)).ejecutar(cantidad)
+            resultado = SimuladorFlota(ParametrosSimulacion(**valores)).ejecutar(
+                cantidad, simular_bateria=True, cargadores=CARGADORES
+            )
             escenario = crear_escenario(resultado,
                 LineaBase(**st.session_state.get("base_guardada", {})),
                 ParametrosEconomicos(**st.session_state.get("economia_guardada", {})))
@@ -466,7 +478,7 @@ def mostrar_documentacion():
     with st.expander("Datos conocidos vs supuestos", expanded=False):
         st.markdown("**Datos conocidos/configurados del proyecto**")
         st.write("Dato de Nestlé: al menos 215 pallets de producto terminado trasladados al almacén en 8 h. Máximo: 800 kg. "
-                 "Velocidad/aceleración/desaceleración comunicadas por el usuario: 2 m/s, 1 m/s², 1 m/s². "
+                 f"Velocidad de referencia del AGV: {VELOCIDAD_REFERENCIA_MS:g} m/s; aceleración/desaceleración: 1 m/s², 1 m/s². "
                  "Topología: grafo JSON del proyecto. Los valores cinemáticos no se extrajeron del .fsm.")
         st.markdown("**Supuestos editables**")
         mostrar_supuestos()
