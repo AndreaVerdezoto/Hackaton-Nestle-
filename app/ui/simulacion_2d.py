@@ -1,21 +1,49 @@
 """Vista 2D ligera: reproduce estados del simulador, sin lógica de asignación."""
 import html
+import base64
 import time
 import streamlit as st
 from pathlib import Path
 import streamlit.components.v1 as components
 
 COMPONENTES = Path(__file__).parent / "componentes"
+LOGO_NESTLE = base64.b64encode((Path(__file__).parent / "assets" / "nestle_logo.png").read_bytes()).decode("ascii")
 _mapa_interactivo = components.declare_component("mapa_agv_2d", path=str(COMPONENTES / "mapa_2d"))
 
 from app.models.bateria import CARGADORES
 from app.services.estado_visual import cargar_mapa, estado_en_instante
 from app.services.inventario_transito import eventos_inventario, registros_inventario
+from app.services.conector_wms import WMS_ENDPOINT, enviar_evento_wms, verificar_wms
 
 
 def horas_minutos(segundos):
     minutos = max(0, int(round(segundos / 60)))
     return f"{minutos // 60} h {minutos % 60:02d} min"
+
+
+@st.cache_data(ttl=2, show_spinner=False)
+def _estado_wms_demo():
+    """Consulta el receptor externo sin bloquear la simulación si está apagado."""
+    return verificar_wms()
+
+
+def _sincronizar_eventos_wms(escenario_id, eventos):
+    """Envía una sola vez cada evento completado del escenario al WMS de prueba."""
+    estados = st.session_state.setdefault("integracion_wms", {})
+    estado = estados.setdefault(escenario_id, {"enviados": [], "ultimo": None})
+    enviados = set(estado.get("enviados", []))
+    pendientes = [e for e in eventos if e.get("movimiento") not in enviados]
+    for evento in pendientes[:10]:
+        salida = dict(evento)
+        salida["escenario_id"] = escenario_id
+        resultado_envio = enviar_evento_wms(salida)
+        estado["ultimo"] = resultado_envio
+        if not resultado_envio.get("ok"):
+            break
+        enviados.add(evento.get("movimiento"))
+    estado["enviados"] = sorted(x for x in enviados if x)
+    estados[escenario_id] = estado
+    return estado
 
 
 def avanzar_reloj(reloj, ahora, limite):
@@ -385,7 +413,7 @@ def _escenario_2d():
 def mostrar_2d():
     with st.container(key="vista2d"):
         st.html('<style>'+ (COMPONENTES / "estilos_2d.css").read_text(encoding="utf-8") +'</style>')
-        st.html('<div class="control-cabecera"><div><div class="eyebrow">INTRALOGÍSTICA · CONTROL DE FLOTA</div><h2>Centro de operaciones AGV</h2><p>Producto terminado · 215 pallets por turno · Simulación 2D</p></div><div class="marca-reservada" aria-label="Espacio reservado para el logo de Nestlé">Nestlé<small>ESPACIO PARA LOGO</small></div></div>')
+        st.html(f'<div class="control-cabecera"><div><div class="eyebrow">INTRALOGÍSTICA · CONTROL DE FLOTA</div><h2>Centro de operaciones AGV</h2><p>Producto terminado · 215 pallets por turno · Simulación 2D</p></div><div class="marca-reservada"><img src="data:image/png;base64,{LOGO_NESTLE}" alt="Nestlé"></div></div>')
         escenario = _escenario_2d()
         resultado = escenario["resultado"] if escenario else None
         reloj = st.session_state.setdefault("reloj_2d", {"tiempo_s": 0., "marca": time.monotonic(), "ejecutando": False, "velocidad": 1})
@@ -463,11 +491,13 @@ def mostrar_2d():
         st.markdown("### Inventario en tránsito")
         st.caption(
             "El gestor convierte automáticamente cada retiro de producto terminado en un registro digital "
-            "desde que se genera la solicitud hasta su entrega en Almacén. El evento final queda listo para "
-            "una futura interfaz con WMS/SAP; el prototipo no afirma conexión directa con los sistemas de Nestlé."
+            "desde que se genera la solicitud hasta su entrega en Almacén. Cuando el WMS de prueba está activo, "
+            "el evento final se transmite automáticamente por API; el prototipo no afirma conexión directa con los sistemas privados de Nestlé."
         )
         inventario = registros_inventario(resultado, estado["tiempo_s"])
         eventos_wms = eventos_inventario(resultado, estado["tiempo_s"])
+        estado_receptor = _estado_wms_demo()
+        sincronizacion = _sincronizar_eventos_wms(escenario["id"], eventos_wms) if estado_receptor.get("ok") else None
         pendientes_inv = sum(r["estado"] == "PENDIENTE" for r in inventario)
         transito_inv = sum(r["estado"] == "EN TRÁNSITO" for r in inventario)
         entregados_inv = sum(r["estado"] == "ENTREGADO" for r in inventario)
@@ -475,6 +505,15 @@ def mostrar_2d():
         c1.metric("Pendientes de traslado", pendientes_inv)
         c2.metric("En tránsito", transito_inv)
         c3.metric("Entregados al Almacén", entregados_inv)
+        if estado_receptor.get("ok"):
+            ultimo_envio = (sincronizacion or {}).get("ultimo")
+            if ultimo_envio and ultimo_envio.get("ok"):
+                pallet_enviado = ultimo_envio.get("payload", {}).get("pallet", "—")
+                st.success(f"WMS de prueba conectado · Último envío: {pallet_enviado} · HTTP {ultimo_envio.get('status')}")
+            else:
+                st.success("WMS de prueba conectado · Esperando el próximo pallet entregado")
+        else:
+            st.caption(f"WMS de prueba no conectado · inicia `python wms_mock.py` · endpoint: {WMS_ENDPOINT}")
         tabla_operativa([
             {
                 "Pallet": r["id_pallet"],
@@ -489,8 +528,9 @@ def mostrar_2d():
         if len(inventario) > 10:
             st.caption(f"Últimos 10 de {len(inventario)} pallets con registro digital generado.")
         if eventos_wms:
-            with st.expander("Último evento listo para WMS/SAP", expanded=False):
+            with st.expander("Último evento de integración WMS", expanded=False):
                 st.json(eventos_wms[-1], expanded=True)
+                st.caption("La demo usa REST/JSON. En una integración real, el adaptador se ajusta al contrato y autenticación que entregue Nestlé.")
 
         with st.expander("Explorar instante y detalle",expanded=False):
             instante=st.number_input("Instante simulado (s)",min_value=0.,max_value=float(resultado["kpis"]["tiempo_total_s"]),value=0.,key="instante_2d")
