@@ -87,19 +87,49 @@ class SimulacionBateriaTests(unittest.TestCase):
 
 
 class Interfaz2DTests(unittest.TestCase):
-    def test_inicio_pausa_bateria_reinicio_sin_tcp(self):
-        with patch('app.services.gestor_flota.FlexSimCliente', side_effect=AssertionError('TCP prohibido')):
-            at=AppTest.from_string("import streamlit as st\nst.session_state['modo_principal']='Simulación 2D'\nfrom app.ui.simulacion_2d import mostrar_2d\nmostrar_2d()",default_timeout=20).run()
+    def test_2d_reutiliza_escenario_existente_sin_simular(self):
+        resultado = {
+            'numero_agv': 1,
+            'parametros': {
+                'ubicacion_inicial': 'ControlPoint7',
+                'velocidad_maxima_ms': 1,
+                'aceleracion_ms2': 1,
+                'desaceleracion_ms2': 1,
+                'factor_escala_metros_por_unidad': 1,
+            },
+            'kpis': {'tiempo_total_s': 600},
+            'movimientos': [],
+            'por_agv': [{
+                'agv': 'AGV_01',
+                'movimientos_turno': 0,
+                'movimientos_totales': 0,
+                'pallets_terminados_turno': 0,
+                'pallets_terminados_totales': 0,
+                'ocupado_turno_s': 0,
+                'libre_turno_s': 600,
+                'utilizacion_pct': 0,
+                'distancia_vacia_m': 0,
+                'distancia_cargada_m': 0,
+                'distancia_total_m': 0,
+                'posicion_final': 'ControlPoint7',
+            }],
+            'demanda': [],
+            'eventos': [],
+        }
+        codigo = f"""
+import streamlit as st
+st.session_state['escenarios_simulados'] = [{{'id': 'escenario_1', 'resultado': {resultado!r}}}]
+st.session_state['escenario_activo'] = 'escenario_1'
+from app.ui.simulacion_2d import mostrar_2d
+mostrar_2d()
+"""
+        with patch.object(SimuladorFlota, 'ejecutar', side_effect=AssertionError('No debe simular')):
+            at = AppTest.from_string(codigo, default_timeout=20).run()
             self.assertFalse(at.exception)
-            next(b for b in at.button if b.label=='Iniciar').click().run()
-            self.assertFalse(at.exception)
-            self.assertTrue(at.session_state['resultado_2d']['recargas'])
-            next(b for b in at.button if b.label=='Pausar').click().run()
-            t=at.session_state['reloj_2d']['tiempo_s']
-            at.run()
-            self.assertEqual(t,at.session_state['reloj_2d']['tiempo_s'])
-            next(b for b in at.button if b.label=='Reanudar').click().run()
+            self.assertFalse(any(b.label == 'Iniciar' for b in at.button))
+            self.assertTrue(any(x.label == 'Escenario para visualización 2D' for x in at.selectbox))
+            next(b for b in at.button if b.label == 'Reanudar').click().run()
             self.assertTrue(at.session_state['reloj_2d']['ejecutando'])
-            next(b for b in at.button if b.label=='Reiniciar').click().run()
+            next(b for b in at.button if b.label == 'Reiniciar reloj').click().run()
             self.assertFalse(at.exception)
-            self.assertEqual(at.session_state['reloj_2d']['tiempo_s'],0)
+            self.assertEqual(at.session_state['reloj_2d']['tiempo_s'], 0)

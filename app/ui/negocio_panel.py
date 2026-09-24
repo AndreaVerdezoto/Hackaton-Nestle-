@@ -6,7 +6,7 @@ from app.services.analisis_negocio import (
     LineaBase, ParametrosEconomicos, crear_escenario, son_comparables, comparar_linea_base,
 )
 
-PENDIENTE = "Pendiente de dato de planta"
+PENDIENTE = "Pendiente de datos de planta"
 
 
 def numero(valor, unidad="", decimales=2):

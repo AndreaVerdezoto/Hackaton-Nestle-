@@ -52,7 +52,7 @@ def estado_en_instante(resultado, tiempo_s, mapa=None):
     movimientos = resultado["movimientos"]
     for agv in resultado["por_agv"]:
         nombre = agv["agv"]
-        recargas = resultado["recargas"][nombre]
+        recargas = resultado.get("recargas", {}).get(nombre, [])
         propios = [m for m in movimientos if m["agv"] == nombre]
         tareas = [(m["inicio_s"], "mision", m) for m in propios if m["inicio_s"] <= t]
         tareas += [(r["inicio_s"], "recarga", r) for r in recargas if r["inicio_s"] <= t]
