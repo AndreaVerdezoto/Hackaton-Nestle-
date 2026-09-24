@@ -84,9 +84,8 @@ def _mostrar_panel_abierto(resultado_actual, escenario_id):
 
 def _mostrar_sugerencias(resultado_actual, escenario_id):
     st.caption("Preguntas sugeridas")
-    columnas = st.columns(len(EJEMPLOS))
-    for indice, ejemplo in enumerate(EJEMPLOS):
-        with columnas[indice]:
+    with st.container(key="nestor_suggestions", border=False):
+        for indice, ejemplo in enumerate(EJEMPLOS):
             if st.button(ejemplo, key=f"nestor_sugerencia_{indice}", width="stretch"):
                 _registrar_respuesta(ejemplo, resultado_actual, escenario_id)
                 st.rerun()
@@ -188,6 +187,11 @@ def _inyectar_estilos():
             border-top: 1px solid rgba(49, 51, 63, 0.08);
             border-bottom: 1px solid rgba(49, 51, 63, 0.08);
             margin: 0.55rem 0 0.65rem;
+        }
+        .st-key-nestor_suggestions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
         }
         .st-key-abrir_nestor,
         .st-key-nestor_avatar_abierto {
