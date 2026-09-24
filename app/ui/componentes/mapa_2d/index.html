@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box}html,body{margin:0;background:#fff;font-family:Inter,Arial,sans-serif;color:#202938;overflow:hidden}
+.mapa{position:relative;height:660px;border:1px solid #dfe4ea;border-radius:14px;overflow:hidden;background:#f8fafb}
+#escena{width:100%;height:100%;touch-action:none;cursor:grab;outline:none}#escena:active{cursor:grabbing}#escena:focus-visible{box-shadow:inset 0 0 0 2px #c42336}
+#escena svg{display:block;width:100%;height:100%;user-select:none}
+#escena .agv-marker{will-change:transform}
+.herramientas{position:absolute;top:14px;left:14px;display:flex;gap:5px;padding:5px;background:#ffffffed;border:1px solid #dfe4ea;border-radius:10px;box-shadow:0 3px 12px #1421370a}
+button{border:0;background:#f1f4f7;color:#243247;border-radius:6px;height:34px;min-width:34px;font-size:20px;cursor:pointer}button:hover{background:#fbeaec;color:#b21f32}button:focus-visible{outline:2px solid #b21f32}
+#ajustar{font-size:12px;padding:0 10px}#escala{align-self:center;min-width:44px;text-align:center;font-size:11px;font-weight:700;color:#64748b}
+.leyenda{position:absolute;bottom:13px;left:15px;right:15px;display:flex;justify-content:space-between;gap:10px;pointer-events:none;font-size:11px;color:#566477}
+.leyenda span{background:#fffffff0;border-radius:5px;padding:5px 8px}.punto{display:inline-block;width:8px;height:8px;border-radius:50%;background:#c42336;margin-right:5px}.azul{background:#286ca3}.verde{background:#287c64}
+@media(max-width:600px){.leyenda .ayuda{display:none}.mapa{height:540px}}
+</style></head>
+<body><div class="mapa" id="mapa">
+<div id="escena" tabindex="0" role="region" aria-label="Mapa interactivo AGV. Usa más y menos para zoom, flechas para desplazar y cero para ajustar."></div>
+<div class="herramientas" aria-label="Controles del mapa"><button id="menos" aria-label="Alejar mapa">−</button><span id="escala">100%</span><button id="mas" aria-label="Acercar mapa">+</button><button id="ajustar">Ajustar</button></div>
+<div class="leyenda"><span><i class="punto"></i>En misión &nbsp; <i class="punto azul"></i>Recarga &nbsp; <i class="punto verde"></i>Disponible</span><span class="ayuda">Rueda: zoom · Arrastra: desplazar</span></div>
+</div>
+<script>
+// La cámara solo afecta la presentación. No modifica coordenadas, reloj ni estado de AGV.
+const root=document.getElementById('escena');
+let base={x:0,y:0,w:1100,h:760},camera={...base},zoom=1,drag=null,signature='';
+let animationFrame=null,lastRenderAt=0;
+function send(type,data={}){window.parent.postMessage({isStreamlitMessage:true,type,...data},'*')}
+function svg(){return root.querySelector('svg')}
+function paint(){const s=svg();if(s)s.setAttribute('viewBox',`${camera.x} ${camera.y} ${camera.w} ${camera.h}`);document.getElementById('escala').textContent=`${Math.round(zoom*100)}%`}
+function home(){zoom=1;camera={...base};paint()}
+function point(e){let p=svg().createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg().getScreenCTM().inverse())}
+function magnify(factor,anchor){if(!svg())return;const next=Math.max(0.65,Math.min(5,zoom*factor));const a=anchor||{x:camera.x+camera.w/2,y:camera.y+camera.h/2};const ratio=zoom/next;camera={x:a.x+(camera.x-a.x)*ratio,y:a.y+(camera.y-a.y)*ratio,w:base.w/next,h:base.h/next};zoom=next;paint()}
+function agvPositions(container=root){const out=new Map();container.querySelectorAll('.agv-marker[data-agv]').forEach(g=>{const m=(g.getAttribute('transform')||'').match(/translate\(\s*([-+\d.eE]+)[ ,]+([-+\d.eE]+)\s*\)/);if(m)out.set(g.dataset.agv,{x:Number(m[1]),y:Number(m[2])})});return out}
+function setAgvPosition(g,p){g.setAttribute('transform',`translate(${p.x.toFixed(3)} ${p.y.toFixed(3)})`)}
+function animateAgvs(from,to,duration){if(animationFrame!==null)cancelAnimationFrame(animationFrame);const start=performance.now();function frame(now){const f=Math.min(1,(now-start)/Math.max(1,duration));to.forEach((target,id)=>{const g=root.querySelector(`.agv-marker[data-agv="${CSS.escape(id)}"]`);if(!g)return;const origin=from.get(id)||target;setAgvPosition(g,{x:origin.x+(target.x-origin.x)*f,y:origin.y+(target.y-origin.y)*f})});if(f<1)animationFrame=requestAnimationFrame(frame);else animationFrame=null}animationFrame=requestAnimationFrame(frame)}
+root.addEventListener('wheel',e=>{if(!svg())return;e.preventDefault();magnify(Math.exp(-e.deltaY*0.0015),point(e))},{passive:false});
+root.addEventListener('pointerdown',e=>{if(!svg()||e.button!==0)return;root.setPointerCapture(e.pointerId);drag={id:e.pointerId,x:e.clientX,y:e.clientY,camera:{...camera},matrix:svg().getScreenCTM().inverse()}});
+root.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;camera.x=drag.camera.x-dx*drag.matrix.a-dy*drag.matrix.c;camera.y=drag.camera.y-dx*drag.matrix.b-dy*drag.matrix.d;paint()});
+root.addEventListener('pointerup',()=>drag=null);root.addEventListener('pointercancel',()=>drag=null);
+document.getElementById('mas').onclick=()=>magnify(1.3);document.getElementById('menos').onclick=()=>magnify(1/1.3);document.getElementById('ajustar').onclick=home;
+root.addEventListener('keydown',e=>{if(['+','=','-','0','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))e.preventDefault();if(e.key==='+'||e.key==='=')magnify(1.3);if(e.key==='-')magnify(1/1.3);if(e.key==='0')home();if(e.key==='ArrowLeft')camera.x-=camera.w*.08;if(e.key==='ArrowRight')camera.x+=camera.w*.08;if(e.key==='ArrowUp')camera.y-=camera.h*.08;if(e.key==='ArrowDown')camera.y+=camera.h*.08;paint()});
+window.addEventListener('message',e=>{if(e.source!==window.parent||e.data.type!=='streamlit:render')return;const now=performance.now();const previous=agvPositions();if(animationFrame!==null){cancelAnimationFrame(animationFrame);animationFrame=null}root.innerHTML=e.data.args.svg;const s=svg();if(!s)return;const target=agvPositions();const v=s.getAttribute('viewBox').split(/\s+/).map(Number);const key=v.join(',');if(key!==signature){base={x:v[0],y:v[1],w:v[2],h:v[3]};signature=key;home()}else paint();if(previous.size&&target.size){previous.forEach((p,id)=>{const g=root.querySelector(`.agv-marker[data-agv="${CSS.escape(id)}"]`);if(g)setAgvPosition(g,p)});const elapsed=lastRenderAt?now-lastRenderAt:200;const duration=Math.max(80,Math.min(260,elapsed*1.05));animateAgvs(previous,target,duration)}lastRenderAt=now;send('streamlit:setFrameHeight',{height:document.getElementById('mapa').offsetHeight})});
+window.addEventListener('resize',()=>send('streamlit:setFrameHeight',{height:document.getElementById('mapa').offsetHeight}));
+send('streamlit:componentReady',{apiVersion:1});send('streamlit:setFrameHeight',{height:660});
+</script></body></html>
