@@ -37,7 +37,7 @@ mostrar_nestor_flotante({"resultado": "simulado"}, escenario_id="escenario_1")
 
         self.assertTrue(any(x.label == "Pregunta para Néstor" for x in at.text_input))
 
-        at = self.boton(at, "Cerrar").click().run()
+        at = self.boton(at, "×").click().run()
 
         self.assertFalse(at.exception)
         self.assertTrue(any(b.label == "Néstor" for b in at.button))
@@ -64,6 +64,18 @@ mostrar_nestor_flotante({"resultado": "simulado"}, escenario_id="escenario_1")
         self.assertFalse(at.exception)
         self.assertTrue(any(x.label == "Pregunta para Néstor" for x in at.text_input))
         self.assertFalse(any("Ejecuta primero una simulación" in x.value for x in at.info))
+
+    def test_burbuja_cerrada_no_renderiza_imagen_separada(self):
+        from app.ui import nestor_panel as panel
+
+        at = self.app("""
+from app.ui.nestor_panel import mostrar_nestor_flotante
+mostrar_nestor_flotante({"resultado": "simulado"}, escenario_id="escenario_1")
+""")
+
+        self.assertFalse(at.exception)
+        self.assertTrue(any(b.label == "Néstor" for b in at.button))
+        self.assertNotIn("st.image", panel._mostrar_burbuja.__code__.co_names)
 
     def test_nestor_recibe_preguntas_y_muestra_respuesta_breve(self):
         at = self.app("""

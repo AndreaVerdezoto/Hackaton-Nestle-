@@ -1,4 +1,5 @@
 """Widget flotante de Streamlit para consultar a Néstor."""
+import base64
 from pathlib import Path
 
 import streamlit as st
@@ -23,11 +24,12 @@ def mostrar_nestor_flotante(resultado_actual=_SIN_RESULTADO_EXPLICITO, escenario
     st.session_state.setdefault("nestor_abierto", False)
     st.session_state.setdefault("nestor_historial", [])
 
-    with st.container(key="nestor_floating_widget", border=True):
+    with st.container(key="nestor_floating_widget", border=False):
         if st.session_state.nestor_abierto:
             _mostrar_panel_abierto(resultado_actual, escenario_id)
+            _mostrar_burbuja("nestor_avatar_abierto", _cerrar_nestor)
         else:
-            _mostrar_burbuja()
+            _mostrar_burbuja("abrir_nestor", _abrir_nestor)
 
 
 def mostrar_nestor(resultado_actual=_SIN_RESULTADO_EXPLICITO, escenario_id=None):
@@ -49,48 +51,44 @@ def _resultado_desde_session_state():
     return escenario.get("resultado"), activo
 
 
-def _mostrar_burbuja():
-    if NESTOR_AVATAR.exists():
-        st.image(str(NESTOR_AVATAR), width=74)
-    else:
+def _mostrar_burbuja(key, accion):
+    if not NESTOR_AVATAR.exists():
         st.warning("No se encontró la imagen de Néstor; el asistente sigue disponible.")
-    st.button("Néstor", key="abrir_nestor", on_click=_abrir_nestor, width="stretch")
+    st.button("Néstor", key=key, on_click=accion, help="Hablar con Néstor")
 
 
 def _mostrar_panel_abierto(resultado_actual, escenario_id):
-    encabezado_avatar, encabezado_texto, encabezado_cierre = st.columns([1, 3, 1])
-    with encabezado_avatar:
-        if NESTOR_AVATAR.exists():
-            st.image(str(NESTOR_AVATAR), width=92)
-        else:
-            st.warning("No se encontró la imagen de Néstor; el asistente sigue disponible.")
-    with encabezado_texto:
-        st.markdown("**Néstor**")
-        st.caption("Asistente inteligente de análisis intralogístico")
-    with encabezado_cierre:
-        st.button("Cerrar", key="cerrar_nestor", on_click=_cerrar_nestor)
+    with st.container(key="nestor_chat_panel", border=False):
+        encabezado_avatar, encabezado_texto, encabezado_cierre = st.columns([1, 4, 1])
+        with encabezado_avatar:
+            if NESTOR_AVATAR.exists():
+                st.image(str(NESTOR_AVATAR), width=42)
+        with encabezado_texto:
+            st.markdown("**Néstor**")
+            st.caption("Asistente inteligente de análisis intralogístico")
+        with encabezado_cierre:
+            st.button("×", key="cerrar_nestor", on_click=_cerrar_nestor, help="Cerrar")
 
-    st.caption(
-        "Néstor interpreta las métricas de la operación y ayuda a identificar "
-        "desviaciones en el desempeño de la flota."
-    )
+        st.caption(
+            "Néstor interpreta las métricas de la operación y ayuda a identificar "
+            "desviaciones en el desempeño de la flota."
+        )
 
-    if resultado_actual is None:
-        st.info("Ejecuta primero una simulación para que pueda analizar la operación.")
-        return
+        if resultado_actual is None:
+            st.info("Ejecuta primero una simulación para que pueda analizar la operación.")
+            return
 
-    _mostrar_sugerencias(resultado_actual, escenario_id)
-    _mostrar_formulario(resultado_actual, escenario_id)
-    _mostrar_historial(escenario_id)
+        _mostrar_historial(resultado_actual, escenario_id)
+        _mostrar_formulario(resultado_actual, escenario_id)
 
 
 def _mostrar_sugerencias(resultado_actual, escenario_id):
     st.caption("Preguntas sugeridas")
-    columnas = st.columns(len(EJEMPLOS))
-    for indice, ejemplo in enumerate(EJEMPLOS):
-        with columnas[indice]:
+    with st.container(key="nestor_suggestions", border=False):
+        for indice, ejemplo in enumerate(EJEMPLOS):
             if st.button(ejemplo, key=f"nestor_sugerencia_{indice}", width="stretch"):
                 _registrar_respuesta(ejemplo, resultado_actual, escenario_id)
+                st.rerun()
 
 
 def _mostrar_formulario(resultado_actual, escenario_id):
@@ -100,28 +98,31 @@ def _mostrar_formulario(resultado_actual, escenario_id):
 
     if enviar and pregunta.strip():
         _registrar_respuesta(pregunta.strip(), resultado_actual, escenario_id)
+        st.rerun()
 
 
-def _mostrar_historial(escenario_id):
+def _mostrar_historial(resultado_actual, escenario_id):
     historial = _historial_visible(st.session_state.get("nestor_historial", []), escenario_id)
-    if not historial:
-        st.caption("El historial se conservará mientras esta sesión esté abierta.")
-        return
+    with st.container(key="nestor_history_scroll", height=320, border=False):
+        if not historial:
+            _mostrar_sugerencias(resultado_actual, escenario_id)
+            st.caption("El historial se conservará mientras esta sesión esté abierta.")
+            return
 
-    for entrada in reversed(historial):
-        st.markdown(f"**Gerente:** {entrada['pregunta']}")
-        respuesta = entrada["respuesta"]
-        st.markdown(f"**Néstor:** {respuesta['respuesta']}")
-        acciones = respuesta.get("acciones_revision") or []
-        if acciones:
-            st.markdown("**Acciones de revisión**")
-            for accion in acciones[:2]:
-                st.write(f"- {accion}")
-        limitaciones = respuesta.get("limitaciones") or []
-        if limitaciones:
-            st.markdown("**Información no disponible**")
-            for limitacion in limitaciones:
-                st.write(f"- {limitacion}")
+        for entrada in historial:
+            st.markdown(f"**Gerente:** {entrada['pregunta']}")
+            respuesta = entrada["respuesta"]
+            st.markdown(f"**Néstor:** {respuesta['respuesta']}")
+            acciones = respuesta.get("acciones_revision") or []
+            if acciones:
+                st.markdown("**Acciones de revisión**")
+                for accion in acciones[:2]:
+                    st.write(f"- {accion}")
+            limitaciones = respuesta.get("limitaciones") or []
+            if limitaciones:
+                st.markdown("**Información no disponible**")
+                for limitacion in limitaciones:
+                    st.write(f"- {limitacion}")
 
 
 def _registrar_respuesta(pregunta, resultado_actual, escenario_id):
@@ -151,7 +152,8 @@ def _cerrar_nestor():
 
 
 def _inyectar_estilos():
-    st.markdown(
+    avatar = _avatar_css_background()
+    st.html(
         """
         <style>
         .st-key-nestor_floating_widget {
@@ -159,21 +161,107 @@ def _inyectar_estilos():
             right: 1.25rem;
             bottom: 1.25rem;
             z-index: 1000;
-            width: min(390px, calc(100vw - 2.5rem));
-            background: rgba(255, 255, 255, 0.97);
-            border: 1px solid rgba(49, 51, 63, 0.18);
-            border-radius: 14px;
-            box-shadow: 0 18px 46px rgba(15, 23, 42, 0.18);
-            padding: 0.8rem;
+            width: 74px;
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
         }
-        .st-key-nestor_floating_widget img {
+        .st-key-nestor_floating_widget:has(.st-key-nestor_chat_panel) {
+            width: min(410px, calc(100vw - 2rem));
+        }
+        .st-key-nestor_chat_panel {
+            width: min(410px, calc(100vw - 2rem));
+            max-height: min(550px, calc(100vh - 7rem));
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid rgba(49, 51, 63, 0.16);
+            border-radius: 16px;
+            box-shadow: 0 18px 46px rgba(15, 23, 42, 0.20);
+            padding: 0.85rem 0.95rem 0.75rem;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+        .st-key-nestor_history_scroll {
+            overflow-y: auto !important;
+            padding-right: 0.25rem;
+            border-top: 1px solid rgba(49, 51, 63, 0.08);
+            border-bottom: 1px solid rgba(49, 51, 63, 0.08);
+            margin: 0.55rem 0 0.65rem;
+        }
+        .st-key-nestor_suggestions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .st-key-abrir_nestor,
+        .st-key-nestor_avatar_abierto {
+            display: flex;
+            justify-content: flex-end;
+        }
+        .st-key-abrir_nestor button,
+        .st-key-nestor_avatar_abierto button {
+            width: 72px !important;
+            min-width: 72px !important;
+            height: 72px !important;
+            border-radius: 999px !important;
+            padding: 0 !important;
+            border: 2px solid rgba(255, 255, 255, 0.96) !important;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.26) !important;
+            background-color: #f8fafc !important;
+            __AVATAR_BACKGROUND__
+            background-size: cover !important;
+            background-position: center !important;
+            color: transparent !important;
+            font-size: 0 !important;
+        }
+        .st-key-abrir_nestor button:hover,
+        .st-key-nestor_avatar_abierto button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 15px 34px rgba(15, 23, 42, 0.30) !important;
+            border-color: rgba(196, 35, 54, 0.35) !important;
+        }
+        .st-key-abrir_nestor button p,
+        .st-key-nestor_avatar_abierto button p {
+            font-size: 0 !important;
+            line-height: 0 !important;
+        }
+        .st-key-cerrar_nestor button {
+            width: 32px !important;
+            height: 32px !important;
+            min-width: 32px !important;
+            border-radius: 999px !important;
+            padding: 0 !important;
+            font-size: 1.05rem !important;
+        }
+        .st-key-nestor_chat_panel img {
             border-radius: 999px;
             object-fit: cover;
         }
-        .st-key-nestor_floating_widget [data-testid="stMarkdownContainer"] p {
+        .st-key-nestor_chat_panel [data-testid="stForm"] {
+            border: 0;
+            padding: 0;
+        }
+        .st-key-nestor_chat_panel [data-testid="stMarkdownContainer"] p {
             margin-bottom: 0.25rem;
         }
+        @media (max-width: 520px) {
+            .st-key-nestor_floating_widget,
+            .st-key-nestor_floating_widget:has(.st-key-nestor_chat_panel) {
+                right: 0.75rem;
+                bottom: 0.75rem;
+                width: min(390px, calc(100vw - 1.5rem));
+            }
+            .st-key-nestor_chat_panel {
+                width: min(390px, calc(100vw - 1.5rem));
+            }
+        }
         </style>
-        """,
-        unsafe_allow_html=True,
+        """.replace("__AVATAR_BACKGROUND__", avatar),
     )
+
+
+def _avatar_css_background():
+    if not NESTOR_AVATAR.exists():
+        return ""
+    contenido = base64.b64encode(NESTOR_AVATAR.read_bytes()).decode("ascii")
+    return f"background-image: url('data:image/png;base64,{contenido}') !important;"
