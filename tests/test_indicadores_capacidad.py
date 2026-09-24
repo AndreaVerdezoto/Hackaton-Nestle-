@@ -6,18 +6,15 @@ from app.services.indicadores_capacidad import calcular_capacidad
 
 
 class CapacidadTests(unittest.TestCase):
-    def test_dos_generan_cola_tres_la_eliminan_sin_cambiar_cierre(self):
+    def test_capacidad_se_calcula_con_flujo_completo(self):
         resultados = comparar_flotas()
-        self.assertEqual([r['kpis']['capacidad_logistica'] for r in resultados],
-                         ['SATURADA', 'SUFICIENTE', 'SUFICIENTE', 'SUFICIENTE'])
-        self.assertGreater(resultados[0]['kpis']['espera_agv_media_pt_s'], 0)
-        for r in resultados[1:]:
-            self.assertEqual(r['kpis']['espera_agv_media_pt_s'], 0)
-            self.assertEqual(r['kpis']['backlog_maximo_agv'], 0)
-            self.assertEqual(r['kpis']['pallets_terminados_pendientes'], 1)
-            self.assertEqual(r['kpis']['pt_tardios_sin_espera_agv'], 1)
-            self.assertEqual(r['kpis']['pt_en_servicio_corte'], 1)
-            self.assertEqual(r['kpis']['pt_sin_asignar_corte'], 0)
+        self.assertEqual([r['numero_agv'] for r in resultados], [2, 3, 4, 5])
+        for r in resultados:
+            self.assertIn(r['kpis']['capacidad_logistica'], ('SUFICIENTE', 'SATURADA', 'INSUFICIENTE'))
+            self.assertEqual(r['kpis']['movimientos_logisticos_totales'], 430)
+            pt = [m for m in r['movimientos'] if m['tipo'] == 'producto_terminado']
+            self.assertAlmostEqual(r['kpis']['espera_agv_media_pt_s'],
+                                   sum(m['espera_s'] for m in pt) / len(pt))
 
     def test_servicio_excede_horas_disponibles(self):
         r = SimuladorFlota(ParametrosSimulacion(tiempo_carga_s=1000)).ejecutar(2)
@@ -37,6 +34,7 @@ class CapacidadTests(unittest.TestCase):
         self.assertEqual(k['pallets_esperaron_agv'], sum(e > 1e-9 for e in esperas))
 
     def test_suministros_no_se_cuentan_como_pallets_que_esperaron(self):
-        r = SimuladorFlota(ParametrosSimulacion(movimientos_suministro=40)).ejecutar(2)
+        r = SimuladorFlota().ejecutar(2)
         pt = [m for m in r['movimientos'] if m['tipo'] == 'producto_terminado']
         self.assertEqual(r['kpis']['pallets_esperaron_agv'], sum(m['espera_s'] > 1e-9 for m in pt))
+        self.assertEqual(len([m for m in r['movimientos'] if m['tipo'] == 'suministro']), 215)

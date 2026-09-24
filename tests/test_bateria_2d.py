@@ -44,9 +44,9 @@ class SimulacionBateriaTests(unittest.TestCase):
 
     def test_misiones_reserva_cargadores_y_no_cambio_peso(self):
         r = self.r
-        self.assertEqual(len(r['movimientos']), 215)
+        self.assertEqual(len(r['movimientos']), 430)
         self.assertTrue(all(m['bateria_fin'] >= 20-1e-8 for m in r['movimientos']))
-        self.assertEqual(r['cargadores_no_utilizables'], ['ControlPoint30'])
+        self.assertEqual(r['cargadores_no_utilizables'], [])
         self.assertTrue(all(len(rs) >= 1 for rs in r['recargas'].values()))
         pesado = SimuladorFlota(ParametrosSimulacion(velocidad_maxima_ms=1,peso_pallet_kg=800)).ejecutar(3,simular_bateria=True,cargadores=CARGADORES)
         self.assertEqual(r['recargas'], pesado['recargas'])
@@ -83,7 +83,7 @@ class SimulacionBateriaTests(unittest.TestCase):
 
     def test_cargadores_sin_conectividad_error(self):
         with self.assertRaisesRegex(ValueError,'cargadores existentes'):
-            SimuladorFlota().ejecutar(2,simular_bateria=True,cargadores=['ControlPoint30'])
+            SimuladorFlota().ejecutar(2,simular_bateria=True,cargadores=['ControlPoint999'])
 
 
 class Interfaz2DTests(unittest.TestCase):

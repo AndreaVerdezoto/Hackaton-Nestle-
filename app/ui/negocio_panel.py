@@ -143,7 +143,7 @@ def mostrar_negocio(escenario):
                  "SATURADA: aparecen esperas aunque el trabajo total cabe en las horas-AGV del turno. "
                  "INSUFICIENTE: el servicio total requerido supera las horas-AGV disponibles. "
                  "Es un diagnóstico de esta corrida, no una garantía de estabilidad futura.")
-        st.caption("Las esperas incluyen los pallets terminados de toda la corrida. La cola máxima y la carga de trabajo incluyen también los suministros configurados. "
+        st.caption("Las esperas incluyen los retiros de producto terminado de toda la corrida. La cola máxima y la carga de trabajo incluyen también los suministros 1:1. "
                    "La espera por AGV termina al asignar vehículo; no incluye viaje vacío, carga, viaje cargado ni descarga.")
         st.write(f"Trabajo requerido / horas-AGV disponibles: {k['carga_trabajo_requerida_pct']:.2f} %.")
     st.markdown("**Cierre físico del turno**")
@@ -169,7 +169,7 @@ def mostrar_negocio(escenario):
             ("Tiempo libre total", numero(o["libre_s"]/3600, " h-AGV")),
             ("Distancia cargada", numero(k["distancia_cargada_m"], " m")),
             ("Distancia vacía", numero(k["distancia_vacia_m"], " m")),
-            ("Suministros adicionales simulados", p["movimientos_suministro"]),
+            ("Suministros requeridos", k["suministros_requeridos"]),
             ("Suministros realizados dentro del turno", k["suministros_turno"]),
             ("Movimientos logísticos totales", k["movimientos_logisticos_totales"]),
         ])
@@ -185,9 +185,9 @@ def mostrar_negocio(escenario):
                    "La espera de solicitudes en cola es distinta del tiempo de un AGV esperando producto.")
     st.write("Una utilización muy baja puede indicar sobredimensionamiento. Una utilización alta junto con colas puede indicar falta de capacidad.")
     st.subheader("Impacto operativo")
-    st.info(f"{p['pallets_terminados']} pallets de producto terminado requeridos + "
-            f"{p['movimientos_suministro']} suministros independientes = {k['movimientos_logisticos_totales']} movimientos logísticos. "
-            "Transportar producto terminado no significa generar producción adicional.")
+    st.info(f"{p['pallets_terminados']} pallets requeridos implican {k['suministros_requeridos']} suministros y "
+            f"{p['pallets_terminados']} retiros de producto terminado = {k['movimientos_logisticos_totales']} movimientos logísticos. "
+            "El retiro solo se genera cuando la producción de ese pallet termina.")
     try:
         with st.expander("Situación actual / Línea base"):
             st.caption("Dato de planta / supuesto editable. Complete únicamente los datos disponibles.")

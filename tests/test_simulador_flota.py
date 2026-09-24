@@ -47,25 +47,35 @@ class SimuladorTests(unittest.TestCase):
         arbol = ast.parse(inspect.getsource(modulo))
         self.assertFalse(any(isinstance(n, ast.Attribute) and n.attr in ('sleep', 'monotonic', 'obtener_estado') for n in ast.walk(arbol)))
 
-    def test_demanda_215_producto_terminado_round_robin_uniforme(self):
+    def test_demanda_215_suministros_round_robin_y_flujo_encadenado(self):
         demanda = generar_demanda(ParametrosSimulacion())
         self.assertEqual(len(demanda), 215)
-        self.assertTrue(all(c.tipo == 'producto_terminado' for c in demanda))
+        self.assertTrue(all(c.tipo == 'suministro' for c in demanda))
         self.assertEqual(Counter(c.linea for c in demanda), dict.fromkeys(modulo.LINEAS, 43))
         self.assertEqual([c.llegada_s for c in demanda], [i * 28800 / 215 for i in range(215)])
         r = SimuladorFlota().ejecutar(3)
-        self.assertEqual(len(r['movimientos']), 215)
+        self.assertEqual(Counter(m['tipo'] for m in r['movimientos']), {'suministro': 215, 'producto_terminado': 215})
+        self.assertEqual(len(r['producciones']), 215)
         for m in r['movimientos']:
-            self.assertEqual(m['destino'], 'ControlPoint7')
-            self.assertEqual(m['origen'], GestorFlota.NODOS_PRODUCTO_TERMINADO[m['linea']])
-            self.assertEqual(m['cargado']['ruta'][-1], 'ControlPoint7')
-            self.assertGreater(m['vacio']['distancia_m'], 0)
-        self.assertEqual([m['id_pallet'] for m in r['movimientos']], [f'PALLET_{i:03d}' for i in range(1,216)])
+            if m['tipo'] == 'suministro':
+                self.assertEqual(m['origen'], 'ControlPoint7')
+                self.assertEqual(m['destino'], GestorFlota.NODOS_SUMINISTRO[m['linea']])
+            else:
+                self.assertEqual(m['destino'], 'ControlPoint7')
+                self.assertEqual(m['origen'], GestorFlota.NODOS_PRODUCTO_TERMINADO[m['linea']])
+            self.assertGreaterEqual(m['vacio']['distancia_m'], 0)
+        for i in range(1, 216):
+            pallet = f'PALLET_{i:03d}'
+            propios = [m for m in r['movimientos'] if m['id_pallet'] == pallet]
+            self.assertEqual([m['tipo'] for m in propios], ['suministro', 'producto_terminado'])
+            prod = next(x for x in r['producciones'] if x['id_pallet'] == pallet)
+            self.assertLessEqual(propios[0]['fin_s'], prod['inicio_s'])
+            self.assertEqual(prod['fin_s'], propios[1]['llegada_s'])
 
-    def test_suministros_independientes_y_cumplimiento(self):
-        r = SimuladorFlota(ParametrosSimulacion(movimientos_suministro=40)).ejecutar(2)
-        self.assertEqual(Counter(m['tipo'] for m in r['movimientos']), {'producto_terminado':215, 'suministro':40})
-        self.assertEqual(r['kpis']['movimientos_logisticos_totales'], 255)
+    def test_cumplimiento_se_mide_al_descargar_producto_en_almacen(self):
+        r = SimuladorFlota().ejecutar(2)
+        self.assertEqual(r['kpis']['movimientos_logisticos_totales'], 430)
+        self.assertEqual(r['kpis']['suministros_requeridos'], 215)
         pt = [m for m in r['movimientos'] if m['tipo'] == 'producto_terminado']
         completados = sum(m['fin_s'] <= 28800 for m in pt)
         self.assertEqual(r['kpis']['pallets_terminados_turno'], completados)
@@ -84,31 +94,30 @@ class SimuladorTests(unittest.TestCase):
             self.assertEqual(r['kpis'], repetido['kpis'])
             self.assertEqual(r['movimientos'], repetido['movimientos'])
             for a in r['por_agv']:
-                propios = [m for m in r['movimientos'] if m['agv'] == a['agv']]
+                propios = sorted((m for m in r['movimientos'] if m['agv'] == a['agv']), key=lambda m: m['inicio_s'])
                 for anterior, siguiente in zip(propios, propios[1:]):
                     self.assertLessEqual(anterior['fin_s'], siguiente['inicio_s'])
                 self.assertLessEqual(a['utilizacion_pct'], 100)
                 self.assertGreaterEqual(a['libre_turno_s'], 0)
 
-    def test_suministro_pendiente_no_cambia_cumplimiento_producto(self):
-        p = ParametrosSimulacion(pallets_terminados=1, movimientos_suministro=1)
-        demanda = (DemandaMision(1, 0, modulo.LINEAS[0]),
-                   DemandaMision(2, 28799, modulo.LINEAS[0], 'suministro'))
-        r = SimuladorFlota(p, demanda).ejecutar(2)
-        self.assertEqual(r['kpis']['suministros_pendientes'], 1)
-        self.assertEqual(r['kpis']['pallets_terminados_pendientes'], 0)
-        self.assertTrue(r['kpis']['cumple'])
-        self.assertEqual(minimo_suficiente([r]), 2)
+    def test_producto_no_existe_antes_de_suministro_y_produccion(self):
+        p = ParametrosSimulacion(pallets_terminados=1, tiempo_produccion_s=100)
+        r = SimuladorFlota(p).ejecutar(2)
+        suministro = next(m for m in r['movimientos'] if m['tipo'] == 'suministro')
+        producto = next(m for m in r['movimientos'] if m['tipo'] == 'producto_terminado')
+        produccion = r['producciones'][0]
+        self.assertLessEqual(suministro['fin_s'], produccion['inicio_s'])
+        self.assertEqual(produccion['fin_s'], producto['llegada_s'])
+        self.assertGreater(producto['fin_s'], producto['llegada_s'])
 
-    def test_suministro_invalido_y_demandas_sin_relacion(self):
-        for valor in (-1, 1.2, True):
+    def test_suministro_es_uno_a_uno_y_no_se_configura_independiente(self):
+        for valor in (-1, 1.2, True, 40):
             with self.assertRaises(ValueError):
                 ParametrosSimulacion(movimientos_suministro=valor)
-        p = ParametrosSimulacion(movimientos_suministro=40)
-        base = generar_demanda(ParametrosSimulacion())
-        extra = generar_demanda(p)
-        self.assertEqual(base, extra[:215])
+        p = ParametrosSimulacion(movimientos_suministro=215)
+        self.assertEqual(p.suministros_requeridos, 215)
         r = SimuladorFlota(p).ejecutar(3)
+        self.assertEqual(r['kpis']['suministros_requeridos'], 215)
         for agv in r['por_agv']:
             misiones = sorted((m for m in r['movimientos'] if m['agv'] == agv['agv']), key=lambda m: m['inicio_s'])
             for anterior, siguiente in zip(misiones, misiones[1:]):
@@ -122,12 +131,12 @@ class SimuladorTests(unittest.TestCase):
         self.assertGreater(k['exceso_tiempo_s'], 0)
         self.assertEqual(k['tiempo_total_s'], max(x['fin_s'] for x in m))
         self.assertEqual(k['completados_turno'], sum(x['fin_s'] <= 28800 for x in m))
-        self.assertEqual(k['completados_turno'] + k['backlog_corte'], 215)
+        self.assertEqual(k['completados_turno'] + k['backlog_corte'], 430)
         self.assertGreaterEqual(k['backlog_corte'], 0)
         self.assertEqual(k['backlog_maximo'], max(e['pendientes'] for e in r['eventos'] if e['evento'] == 'cola'))
         self.assertEqual(k['throughput_mov_h'], k['completados_turno'] / 8)
-        self.assertAlmostEqual(k['espera_media_s'], sum(x['inicio_s'] - x['llegada_s'] for x in m) / 215)
-        self.assertAlmostEqual(k['ciclo_medio_s'], sum(x['fin_s'] - x['llegada_s'] for x in m) / 215)
+        self.assertAlmostEqual(k['espera_media_s'], sum(x['inicio_s'] - x['llegada_s'] for x in m) / 430)
+        self.assertAlmostEqual(k['ciclo_medio_s'], sum(x['fin_s'] - x['llegada_s'] for x in m) / 430)
         self.assertAlmostEqual(k['distancia_total_m'], k['distancia_vacia_m'] + k['distancia_cargada_m'])
         for a in r['por_agv']:
             propios = [x for x in m if x['agv'] == a['agv']]
@@ -135,7 +144,8 @@ class SimuladorTests(unittest.TestCase):
             self.assertAlmostEqual(a['ocupado_turno_s'], ocupado)
             self.assertAlmostEqual(a['libre_turno_s'] + ocupado, 28800)
             self.assertAlmostEqual(a['distancia_total_m'], sum(x['vacio']['distancia_m'] + x['cargado']['distancia_m'] for x in propios))
-        self.assertEqual(Counter(e['evento'] for e in r['eventos'])['fin'], 215)
+        self.assertEqual(Counter(e['evento'] for e in r['eventos'])['fin'], 430)
+        self.assertEqual(Counter(e['evento'] for e in r['eventos'])['fin_produccion'], 215)
 
     def test_dijkstra_conserva_sentidos_y_distancia(self):
         red = GestorFlota(habilitar_flexsim=False)
@@ -156,7 +166,7 @@ class SimuladorTests(unittest.TestCase):
                              ('velocidad_maxima_ms', 0), ('aceleracion_ms2', 0), ('desaceleracion_ms2', 0),
                              ('tiempo_carga_s', -1), ('tiempo_descarga_s', float('nan')),
                              ('espera_disponibilidad_retorno_s', -2), ('peso_pallet_kg', 801),
-                             ('factor_escala_metros_por_unidad', 0)):
+                             ('factor_escala_metros_por_unidad', 0), ('tiempo_produccion_s', -1)):
             with self.subTest(campo=campo), self.assertRaises(ValueError):
                 ParametrosSimulacion(**{campo: valor})
         with self.assertRaises(ValueError):
@@ -170,19 +180,21 @@ class SimuladorTests(unittest.TestCase):
         self.assertAlmostEqual(b['movimientos'][0]['vacio']['distancia_m'], 2 * a['movimientos'][0]['vacio']['distancia_m'])
         self.assertGreater(b['movimientos'][0]['duracion_servicio_s'], a['movimientos'][0]['duracion_servicio_s'])
 
-    def test_espera_retorno_y_reserva(self):
-        r = SimuladorFlota(ParametrosSimulacion(pallets_terminados=6, espera_disponibilidad_retorno_s=60)).ejecutar(3)
+    def test_retiro_se_crea_solo_cuando_producto_esta_listo(self):
+        r = SimuladorFlota(ParametrosSimulacion(pallets_terminados=6, tiempo_produccion_s=60)).ejecutar(3)
         for m in r['movimientos']:
-            self.assertEqual(m['espera_disponibilidad_s'], 60 if m['tipo'] == 'producto_terminado' else 0)
+            self.assertEqual(m['espera_disponibilidad_s'], 0)
             self.assertAlmostEqual(m['duracion_servicio_s'], m['vacio']['tiempo_s'] + m['carga_s'] +
-                                   m['cargado']['tiempo_s'] + m['descarga_s'] + m['espera_disponibilidad_s'])
-        for a in r['por_agv']:
-            self.assertEqual(a['posicion_final'], 'ControlPoint7')
+                                   m['cargado']['tiempo_s'] + m['descarga_s'])
+        for prod in r['producciones']:
+            retorno = next(m for m in r['movimientos'] if m['tipo'] == 'producto_terminado' and m['id_pallet'] == prod['id_pallet'])
+            self.assertEqual(retorno['llegada_s'], prod['fin_s'])
 
     def test_demanda_historica_y_prioridad(self):
-        p = ParametrosSimulacion(pallets_terminados=3)
-        demanda = tuple(DemandaMision(i + 1, 0, modulo.LINEAS[i], "producto_terminado",
-                                    PrioridadSolicitud.ALTA if i == 2 else PrioridadSolicitud.NORMAL) for i in range(3))
+        p = ParametrosSimulacion(pallets_terminados=3, tiempo_produccion_s=60)
+        demanda = tuple(DemandaMision(i + 1, 0, modulo.LINEAS[i], "suministro",
+                                    PrioridadSolicitud.ALTA if i == 2 else PrioridadSolicitud.NORMAL,
+                                    f"PALLET_{i+1:03d}", i+1) for i in range(3))
         r = SimuladorFlota(p, demanda).ejecutar(2)
         inicios = [e['movimiento'] for e in r['eventos'] if e['evento'] == 'inicio']
         self.assertEqual(inicios[:2], [3, 1])
@@ -195,26 +207,26 @@ class SimuladorTests(unittest.TestCase):
         b = SimuladorFlota(ParametrosSimulacion(peso_pallet_kg=800)).ejecutar(2)
         self.assertEqual(a['kpis'], b['kpis'])
 
-    def test_ejemplo_analitico_y_corte_inclusivo(self):
-        p = ParametrosSimulacion(pallets_terminados=1, duracion_turno_s=22, tiempo_carga_s=3, tiempo_descarga_s=5)
-        s = SimuladorFlota(p)
-        s.red.grafo = {'ControlPoint7': [('ControlPoint24', 10)], 'ControlPoint24': [('ControlPoint7', 10)]}
-        s._rutas.clear()
-        r = s.ejecutar(2)
-        self.assertEqual(r['movimientos'][0]['fin_s'], 22)
-        self.assertEqual(r['kpis']['pallets_terminados_turno'], 1)
-        self.assertEqual(r['kpis']['pallets_terminados_pendientes'], 0)
-        self.assertTrue(r['kpis']['cumple'])
-        self.assertEqual(r['por_agv'][0]['utilizacion_pct'], 100)
-        self.assertEqual(r['kpis']['distancia_total_m'], 20)
-
-    def test_fin_producto_separado_de_ultimo_suministro(self):
-        p = ParametrosSimulacion(pallets_terminados=1, movimientos_suministro=1, espera_disponibilidad_retorno_s=30000)
+    def test_ejemplo_analitico_flujo_encadenado(self):
+        p = ParametrosSimulacion(pallets_terminados=1, duracion_turno_s=100, velocidad_maxima_ms=1,
+                                 tiempo_carga_s=3, tiempo_descarga_s=5, tiempo_produccion_s=4)
         r = SimuladorFlota(p).ejecutar(2)
-        self.assertGreater(r['kpis']['tiempo_total_s'], r['kpis']['hora_fin_movimiento_ultimo_id_s'])
-        self.assertEqual(r['kpis']['margen_tiempo_s'], 0)
-        self.assertEqual(r['kpis']['pallets_terminados_pendientes'], 1)
-        self.assertEqual(r['kpis']['suministros_pendientes'], 0)
+        suministro = next(m for m in r['movimientos'] if m['tipo'] == 'suministro')
+        producto = next(m for m in r['movimientos'] if m['tipo'] == 'producto_terminado')
+        prod = r['producciones'][0]
+        self.assertEqual(prod['inicio_s'], suministro['fin_s'])
+        self.assertEqual(prod['fin_s'], producto['llegada_s'])
+        self.assertEqual(r['kpis']['pallets_terminados_turno'], int(producto['fin_s'] <= 100))
+
+    def test_fin_producto_ocurre_despues_de_produccion(self):
+        p = ParametrosSimulacion(pallets_terminados=1, tiempo_produccion_s=300)
+        r = SimuladorFlota(p).ejecutar(2)
+        suministro = next(m for m in r['movimientos'] if m['tipo'] == 'suministro')
+        producto = next(m for m in r['movimientos'] if m['tipo'] == 'producto_terminado')
+        produccion = r['producciones'][0]
+        self.assertGreaterEqual(produccion['inicio_s'], suministro['fin_s'])
+        self.assertEqual(produccion['fin_s'], producto['llegada_s'])
+        self.assertGreater(producto['fin_s'], produccion['fin_s'])
 
     def test_json_y_minimo_sin_resultados_fijos(self):
         resultados = comparar_flotas()
