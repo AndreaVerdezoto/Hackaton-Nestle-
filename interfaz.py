@@ -42,10 +42,7 @@ MODOS_PRINCIPALES = ["Análisis de flota", "Simulación 2D"]
 if st.session_state.get("modo_principal") not in MODOS_PRINCIPALES:
     st.session_state["modo_principal"] = "Análisis de flota"
 
-analisis, visual = st.tabs(
-    MODOS_PRINCIPALES,
-    key="modo_principal", on_change=cambiar_modo,
-)
+analisis, visual = st.tabs(MODOS_PRINCIPALES)
 if st.session_state.modo_principal == "Análisis de flota":
     with analisis:
         from app.ui.analisis_panel import mostrar_analisis
