@@ -214,4 +214,3 @@ def mostrar_desglose(resultados):
                        "Escala (m/unidad)": r["parametros"]["factor_escala_metros_por_unidad"],
                        "Distancia (m)": m[campo]["distancia_m"]}
                       for campo, nombre in (("vacio", "Sin pallet"), ("cargado", "Con pallet"))], hide_index=True)
-
