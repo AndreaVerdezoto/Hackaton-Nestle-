@@ -1,20 +1,49 @@
 """Vista 2D ligera: reproduce estados del simulador, sin lógica de asignación."""
 import html
+import base64
 import time
 import streamlit as st
 from pathlib import Path
 import streamlit.components.v1 as components
 
 COMPONENTES = Path(__file__).parent / "componentes"
+LOGO_NESTLE = base64.b64encode((Path(__file__).parent / "assets" / "nestle_logo.png").read_bytes()).decode("ascii")
 _mapa_interactivo = components.declare_component("mapa_agv_2d", path=str(COMPONENTES / "mapa_2d"))
 
 from app.models.bateria import CARGADORES
 from app.services.estado_visual import cargar_mapa, estado_en_instante
+from app.services.inventario_transito import eventos_inventario, registros_inventario
+from app.services.conector_wms import WMS_ENDPOINT, enviar_evento_wms, verificar_wms
 
 
 def horas_minutos(segundos):
     minutos = max(0, int(round(segundos / 60)))
     return f"{minutos // 60} h {minutos % 60:02d} min"
+
+
+@st.cache_data(ttl=2, show_spinner=False)
+def _estado_wms_demo():
+    """Consulta el receptor externo sin bloquear la simulación si está apagado."""
+    return verificar_wms()
+
+
+def _sincronizar_eventos_wms(escenario_id, eventos):
+    """Envía una sola vez cada evento completado del escenario al WMS de prueba."""
+    estados = st.session_state.setdefault("integracion_wms", {})
+    estado = estados.setdefault(escenario_id, {"enviados": [], "ultimo": None})
+    enviados = set(estado.get("enviados", []))
+    pendientes = [e for e in eventos if e.get("movimiento") not in enviados]
+    for evento in pendientes[:10]:
+        salida = dict(evento)
+        salida["escenario_id"] = escenario_id
+        resultado_envio = enviar_evento_wms(salida)
+        estado["ultimo"] = resultado_envio
+        if not resultado_envio.get("ok"):
+            break
+        enviados.add(evento.get("movimiento"))
+    estado["enviados"] = sorted(x for x in enviados if x)
+    estados[escenario_id] = estado
+    return estado
 
 
 def avanzar_reloj(reloj, ahora, limite):
@@ -56,6 +85,13 @@ def nombre_nodo(nodo):
         "ControlPoint10": "Pallet Transit 3 · Der.",
         "ControlPoint7": "Pallet Transit 4 · Izq.",
         "ControlPoint9": "Pallet Transit 4 · Der.",
+        # Paradas del almacén.
+        "ControlPoint1": "Almacén CP1",
+        "ControlPoint2": "Almacén CP2",
+        "ControlPoint3": "Almacén CP3",
+        "ControlPoint4": "Almacén CP4",
+        "ControlPoint5": "Almacén CP5",
+        "ControlPoint6": "Almacén CP6",
         # Entrada de materia prima a las líneas.
         "ControlPoint23": "Entrada Cookies 1",
         "ControlPoint21": "Entrada Cookies 2",
@@ -239,6 +275,9 @@ def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
                 partes.append(linea(nodos[origen],nodos[destino],"#c42336",3.5))
     etiquetas=[]
     puntos_parada = {
+        # Paradas del almacén.
+        "ControlPoint1", "ControlPoint2", "ControlPoint3",
+        "ControlPoint4", "ControlPoint5", "ControlPoint6",
         # Pallet Transit, ambos lados.
         "ControlPoint13", "ControlPoint12", "ControlPoint11", "ControlPoint27",
         "ControlPoint8", "ControlPoint10", "ControlPoint7", "ControlPoint9",
@@ -248,6 +287,9 @@ def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
         "ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15",
     }
     etiquetas_sin_caja = {
+        # En almacén se muestran los cuadrados grises sin recargar el mapa con texto.
+        "ControlPoint1", "ControlPoint2", "ControlPoint3",
+        "ControlPoint4", "ControlPoint5", "ControlPoint6",
         "ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15",
         # Pallet Transit: mantener solo los cuadrados y el tooltip, sin etiquetas visibles.
         "ControlPoint13", "ControlPoint12", "ControlPoint11", "ControlPoint27",
@@ -265,10 +307,20 @@ def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
             partes.append(f'<rect x="{x-5}" y="{y-5}" rx="2" width="10" height="10" fill="#536477" stroke="white" stroke-width="1.5"><title>{html.escape(label)}</title></rect>')
             if nodo not in etiquetas_sin_caja:
                 etiquetas.append((x,y,label,nodo))
+    # Ajustes puntuales de etiquetas para no tapar vías ni otros cargadores.
+    # Solo se mueve el cuadro de texto; el nodo/cuadrado conserva su posición real.
+    ajustes_etiqueta = {
+        "ControlPoint31": {"lado": "derecha", "dx": 16, "dy": -13},
+        "ControlPoint17": {"lado": "derecha", "dx": 20, "dy": -31},
+    }
     cajas=[]
     for x,y,label,nodo in sorted(etiquetas,key=lambda e:e[1]):
-        derecha=nodo in ("ControlPoint24","ControlPoint25","ControlPoint26","ControlPoint18","ControlPoint15")
-        w=len(label)*6.7+16;lx=x+14 if derecha else x-w-14;ly=y-13
+        ajuste = ajustes_etiqueta.get(nodo, {})
+        derecha = ajuste.get("lado") == "derecha" or nodo in ("ControlPoint24","ControlPoint25","ControlPoint26","ControlPoint18","ControlPoint15")
+        w=len(label)*6.7+16
+        dx = ajuste.get("dx", 14)
+        ly = y + ajuste.get("dy", -13)
+        lx = x + dx if derecha else x-w-dx
         lx=max(12,min(ancho-w-12,lx))
         while any(lx < bx+bw+5 and lx+w+5 > bx and ly < by+bh+4 and ly+24+4 > by for bx,by,bw,bh in cajas):
             ly+=26
@@ -361,7 +413,7 @@ def _escenario_2d():
 def mostrar_2d():
     with st.container(key="vista2d"):
         st.html('<style>'+ (COMPONENTES / "estilos_2d.css").read_text(encoding="utf-8") +'</style>')
-        st.html('<div class="control-cabecera"><div><div class="eyebrow">INTRALOGÍSTICA · CONTROL DE FLOTA</div><h2>Centro de operaciones AGV</h2><p>Producto terminado · 215 pallets por turno · Simulación 2D</p></div><div class="marca-reservada" aria-label="Espacio reservado para el logo de Nestlé">Nestlé<small>ESPACIO PARA LOGO</small></div></div>')
+        st.html(f'<div class="control-cabecera"><div><div class="eyebrow">INTRALOGÍSTICA · CONTROL DE FLOTA</div><h2>Centro de operaciones AGV</h2><p>Producto terminado · 215 pallets por turno · Simulación 2D</p></div><div class="marca-reservada"><img src="data:image/png;base64,{LOGO_NESTLE}" alt="Nestlé"></div></div>')
         escenario = _escenario_2d()
         resultado = escenario["resultado"] if escenario else None
         reloj = st.session_state.setdefault("reloj_2d", {"tiempo_s": 0., "marca": time.monotonic(), "ejecutando": False, "velocidad": 1})
@@ -400,7 +452,7 @@ def mostrar_2d():
         mapa = cargar_mapa()
         if resultado is None:
             mostrar_mapa(mapa, [], None, estado_lineas_produccion(None, 0, []))
-            st.caption("Cargadores confirmados: CP31, CP32, CP30 y CP29 · Rueda para acercar, arrastra para explorar.")
+            st.caption("Cargadores confirmados: CP31, CP28, CP32, CP30 y CP29 · Rueda para acercar, arrastra para explorar.")
             st.info("Ejecuta primero un escenario en Dimensionamiento para visualizarlo en 2D.")
             return
         estado = estado_en_instante(resultado, reloj["tiempo_s"], mapa)
@@ -435,6 +487,51 @@ def mostrar_2d():
             st.markdown("**Misiones activas**")
             tabla_operativa([{"Misión":x["mision"],"AGV":x["agv"],"Pallet":x["pallet_asignado"],"Origen":nombre_nodo(x["origen"]),"Destino":nombre_nodo(x["destino"]),"Estado":x["estado"]}
                 for x in estado["flota"] if x["mision"] != "—"], "Sin misiones activas")
+
+        st.markdown("### Inventario en tránsito")
+        st.caption(
+            "El gestor convierte automáticamente cada retiro de producto terminado en un registro digital "
+            "desde que se genera la solicitud hasta su entrega en Almacén. Cuando el WMS de prueba está activo, "
+            "el evento final se transmite automáticamente por API; el prototipo no afirma conexión directa con los sistemas privados de Nestlé."
+        )
+        inventario = registros_inventario(resultado, estado["tiempo_s"])
+        eventos_wms = eventos_inventario(resultado, estado["tiempo_s"])
+        estado_receptor = _estado_wms_demo()
+        sincronizacion = _sincronizar_eventos_wms(escenario["id"], eventos_wms) if estado_receptor.get("ok") else None
+        pendientes_inv = sum(r["estado"] == "PENDIENTE" for r in inventario)
+        transito_inv = sum(r["estado"] == "EN TRÁNSITO" for r in inventario)
+        entregados_inv = sum(r["estado"] == "ENTREGADO" for r in inventario)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Pendientes de traslado", pendientes_inv)
+        c2.metric("En tránsito", transito_inv)
+        c3.metric("Entregados al Almacén", entregados_inv)
+        if estado_receptor.get("ok"):
+            ultimo_envio = (sincronizacion or {}).get("ultimo")
+            if ultimo_envio and ultimo_envio.get("ok"):
+                pallet_enviado = ultimo_envio.get("payload", {}).get("pallet", "—")
+                st.success(f"WMS de prueba conectado · Último envío: {pallet_enviado} · HTTP {ultimo_envio.get('status')}")
+            else:
+                st.success("WMS de prueba conectado · Esperando el próximo pallet entregado")
+        else:
+            st.caption(f"WMS de prueba no conectado · inicia `python wms_mock.py` · endpoint: {WMS_ENDPOINT}")
+        tabla_operativa([
+            {
+                "Pallet": r["id_pallet"],
+                "Origen": r["origen"],
+                "Destino": r["destino"],
+                "Estado": r["estado"],
+                "AGV": r["agv"],
+                "Última actualización": r["ultima_actualizacion"],
+            }
+            for r in inventario[:10]
+        ], "Aún no se han generado solicitudes de retiro de producto terminado")
+        if len(inventario) > 10:
+            st.caption(f"Últimos 10 de {len(inventario)} pallets con registro digital generado.")
+        if eventos_wms:
+            with st.expander("Último evento de integración WMS", expanded=False):
+                st.json(eventos_wms[-1], expanded=True)
+                st.caption("La demo usa REST/JSON. En una integración real, el adaptador se ajusta al contrato y autenticación que entregue Nestlé.")
+
         with st.expander("Explorar instante y detalle",expanded=False):
             instante=st.number_input("Instante simulado (s)",min_value=0.,max_value=float(resultado["kpis"]["tiempo_total_s"]),value=0.,key="instante_2d")
             if st.button("Ver instante y pausar",key="buscar_2d"):
