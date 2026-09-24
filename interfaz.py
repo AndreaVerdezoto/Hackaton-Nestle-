@@ -3,6 +3,34 @@ import streamlit as st
 
 st.set_page_config(page_title="Dimensionamiento de flota AGV", page_icon="🤖", layout="wide")
 
+# Identidad visual global: se carga en ambos modos para que la interfaz no
+# cambie de tema al pasar de Análisis de flota a Simulación 2D.
+st.html("""
+<style>
+[data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+    background: #f5f6f8;
+}
+[data-testid="stTabs"] [role="tablist"] {
+    gap: 1.15rem;
+    border-bottom: 1px solid #dfe4ea;
+}
+[data-testid="stTabs"] button[role="tab"] {
+    background: transparent !important;
+    color: #536174 !important;
+    font-weight: 600;
+}
+[data-testid="stTabs"] button[role="tab"] p {
+    color: inherit !important;
+}
+[data-testid="stTabs"] button[role="tab"]:hover {
+    color: #a91f31 !important;
+}
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    color: #c42336 !important;
+}
+</style>
+""")
+
 
 def cambiar_modo():
     reloj = st.session_state.get("reloj_2d")
