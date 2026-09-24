@@ -35,7 +35,142 @@ def nombre_nodo(nodo):
             **{n: f"Cargador CP{n.removeprefix('ControlPoint')}" for n in CARGADORES}}.get(nodo, nodo)
 
 
-def mapa_svg(mapa, flota, seleccionado):
+LINEAS_VISUALES = {
+    "COOKIE_1": {"titulo": "COOKIES 1", "fin": "ControlPoint24"},
+    "COOKIE_2": {"titulo": "COOKIES 2", "fin": "ControlPoint25"},
+    "COOKIE_3": {"titulo": "COOKIES 3", "fin": "ControlPoint26"},
+    "CHOCOLATE": {"titulo": "CHOCOLATE", "fin": "ControlPoint18"},
+    "WAFER": {"titulo": "WAFER", "fin": "ControlPoint15"},
+}
+
+
+def estado_lineas_produccion(resultado, tiempo_s, flota):
+    """Estado visual de las líneas usando la agenda ya calculada por la simulación.
+
+    Es solo presentación: no añade tiempos ni cambia la lógica de producción,
+    misiones, rutas o asignación de AGV.
+    """
+    base = {linea: {"estado": "ESPERA", "progreso": None, "pallet": "—"}
+            for linea in LINEAS_VISUALES}
+    if not resultado:
+        return base
+
+    t = max(0.0, float(tiempo_s))
+    por_linea = {}
+    for linea, datos in LINEAS_VISUALES.items():
+        tareas = sorted(
+            (m for m in resultado["movimientos"]
+             if m["tipo"] == "producto_terminado" and m["linea"] == linea),
+            key=lambda m: m["llegada_s"],
+        )
+        if not tareas:
+            por_linea[linea] = base[linea]
+            continue
+
+        # Un pallet está listo desde que aparece en la agenda hasta que termina
+        # la carga al AGV. Si hay cola, permanece visible en el fin de línea.
+        listos = []
+        for m in tareas:
+            fin_recogida = (m["inicio_s"] + m["vacio"]["tiempo_s"] +
+                            m["espera_disponibilidad_s"] + m["carga_s"])
+            if m["llegada_s"] <= t < fin_recogida:
+                listos.append(m)
+
+        agv_cargando = next((a for a in flota
+                             if a["origen"] == datos["fin"] and
+                             a["estado"] == "CARGANDO_PALLET"), None)
+        if listos:
+            actual = listos[0]
+            por_linea[linea] = {
+                "estado": "RECOGIENDO" if agv_cargando else "LISTO",
+                "progreso": 1.0,
+                "pallet": actual["id_pallet"],
+            }
+            continue
+
+        # Entre dos llegadas de producto terminado, el siguiente pallet se
+        # representa avanzando suavemente por la banda. Es una visualización
+        # del ciclo ya programado, no un nuevo modelo de proceso.
+        siguiente_i = next((i for i, m in enumerate(tareas) if m["llegada_s"] > t), None)
+        if siguiente_i is None:
+            por_linea[linea] = {"estado": "COMPLETO", "progreso": None, "pallet": "—"}
+            continue
+
+        siguiente = tareas[siguiente_i]
+        inicio = tareas[siguiente_i - 1]["llegada_s"] if siguiente_i else 0.0
+        fin = siguiente["llegada_s"]
+        progreso = 0.0 if fin <= inicio else max(0.0, min(1.0, (t - inicio) / (fin - inicio)))
+        por_linea[linea] = {
+            "estado": "PRODUCIENDO",
+            "progreso": progreso,
+            "pallet": siguiente["id_pallet"],
+        }
+
+    return por_linea
+
+
+def lineas_produccion_svg(nodos, xy, estados_linea=None):
+    """Dibuja solo las cinco líneas de producción; sin almacén ni Pallet Transit."""
+    estados_linea = estados_linea or {}
+    partes = []
+    orden = [
+        ("COOKIE_3", "ControlPoint26", "COOKIES 3"),
+        ("COOKIE_2", "ControlPoint25", "COOKIES 2"),
+        ("COOKIE_1", "ControlPoint24", "COOKIES 1"),
+        ("CHOCOLATE", "ControlPoint18", "CHOCOLATE"),
+        ("WAFER", "ControlPoint15", "WAFER"),
+    ]
+    for clave, nodo, titulo in orden:
+        x, y = xy(nodos[nodo])
+        bx, by, bw, bh = x + 22, y - 24, 190, 48
+        estado = estados_linea.get(clave, {"estado": "ESPERA", "progreso": None, "pallet": "—"})
+        nombre_estado = estado["estado"]
+        progreso = estado.get("progreso")
+
+        if nombre_estado == "PRODUCIENDO":
+            texto_estado, color_estado_linea = "PRODUCIENDO", "#b86b13"
+        elif nombre_estado == "LISTO":
+            texto_estado, color_estado_linea = "LISTO", "#287c64"
+        elif nombre_estado == "RECOGIENDO":
+            texto_estado, color_estado_linea = "RECOGIENDO", "#286ca3"
+        elif nombre_estado == "COMPLETO":
+            texto_estado, color_estado_linea = "COMPLETO", "#64748b"
+        else:
+            texto_estado, color_estado_linea = "ESPERA", "#8b98a8"
+
+        partes.append(f'<line x1="{x+5}" y1="{y}" x2="{bx}" y2="{y}" stroke="#aeb9c6" stroke-width="2"/>')
+        partes.append(f'<rect x="{bx}" y="{by}" width="{bw}" height="{bh}" rx="10" fill="#ffffff" stroke="#dfe5eb" stroke-width="1.2"/>')
+        partes.append(f'<rect x="{bx}" y="{by}" width="4" height="{bh}" rx="2" fill="#c42336"/>')
+        partes.append(f'<text x="{bx+12}" y="{by+15}" font-family="Arial,sans-serif" font-size="10.5" font-weight="800" fill="#28364a">{titulo}</text>')
+        partes.append(f'<circle cx="{bx+bw-72}" cy="{by+12}" r="3" fill="{color_estado_linea}"/>')
+        partes.append(f'<text x="{bx+bw-10}" y="{by+15}" text-anchor="end" font-family="Arial,sans-serif" font-size="7.5" font-weight="800" fill="{color_estado_linea}">{texto_estado}</text>')
+        partes.append(f'<text x="{bx+12}" y="{by+27}" font-family="Arial,sans-serif" font-size="7.5" font-weight="700" letter-spacing=".55" fill="#8793a3">LÍNEA DE PRODUCCIÓN</text>')
+
+        # Banda y estaciones. El bloque ámbar representa el pallet/caja.
+        cy = by + 38
+        inicio_banda = bx + 82
+        fin_banda = bx + bw - 25
+        partes.append(f'<line x1="{inicio_banda}" y1="{cy}" x2="{bx+bw-13}" y2="{cy}" stroke="#aeb9c6" stroke-width="3" stroke-linecap="round"/>')
+        for i in range(5):
+            cx = bx + 91 + i * 17
+            partes.append(f'<circle cx="{cx}" cy="{cy}" r="2.4" fill="#d9e0e7" stroke="#9aa8b7"/>')
+        partes.append(f'<rect x="{bx+78}" y="{cy-7}" width="13" height="14" rx="2.5" fill="#eef2f6" stroke="#9eabb9"/>')
+        partes.append(f'<rect x="{bx+bw-34}" y="{cy-7}" width="13" height="14" rx="2.5" fill="#f8e8eb" stroke="#c42336"/>')
+
+        if progreso is not None:
+            px_pallet = inicio_banda + (fin_banda - inicio_banda) * max(0.0, min(1.0, progreso))
+            partes.append(
+                f'<g class="linea-pallet" data-linea="{clave}" transform="translate({px_pallet:.3f} {cy:.3f})">'
+                f'<rect x="-6" y="-6" width="12" height="12" rx="2" fill="#e9bd78" stroke="#bd8540" stroke-width="1"/>'
+                f'<line x1="-5" y1="7" x2="5" y2="7" stroke="#9f6f36" stroke-width="1.4"/>'
+                f'<title>{html.escape(estado.get("pallet", "Pallet"))}</title>'
+                '</g>'
+            )
+
+    return partes
+
+
+def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
     nodos = {n["id"]: (n["x"], n["y"]) for n in mapa["nodos"]}
     xs, ys = zip(*nodos.values())
     ancho, alto = 1000, 720
@@ -50,6 +185,7 @@ def mapa_svg(mapa, flota, seleccionado):
     partes=[f'<svg viewBox="0 0 {ancho} {alto}" role="img" aria-label="Mapa AGV 2D" xmlns="http://www.w3.org/2000/svg">',
             '<defs><pattern id="cuadricula" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".7" fill="#dfe5eb"/></pattern></defs>',
             '<rect x="-10000" y="-10000" width="20000" height="20000" fill="#f8fafb"/><rect x="-10000" y="-10000" width="20000" height="20000" fill="url(#cuadricula)"/>']
+    partes.extend(lineas_produccion_svg(nodos, xy, estados_linea))
     for e in mapa["aristas"]:
         partes.append(linea(nodos[e["origen"]],nodos[e["destino"]],"#b9c4d0",2))
     for a in flota:
@@ -64,7 +200,8 @@ def mapa_svg(mapa, flota, seleccionado):
             cargador=nodo in CARGADORES
             color="#527899" if cargador else "#536477"
             partes.append(f'<rect x="{x-5}" y="{y-5}" rx="2" width="10" height="10" fill="{color}" stroke="white" stroke-width="1.5"/>')
-            etiquetas.append((x,y,label,nodo))
+            if nodo not in {"ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15"}:
+                etiquetas.append((x,y,label,nodo))
     cajas=[]
     for x,y,label,nodo in sorted(etiquetas,key=lambda e:e[1]):
         derecha=nodo in ("ControlPoint24","ControlPoint25","ControlPoint26","ControlPoint18","ControlPoint15")
@@ -115,8 +252,8 @@ def tarjeta_agv(a):
             f'<div class="agv-foot">{html.escape(a["mision"])} · {html.escape(a["pallet"])}</div></div>')
 
 
-def mostrar_mapa(mapa, flota, seleccionado):
-    _mapa_interactivo(svg=mapa_svg(mapa,flota,seleccionado),key="mapa_2d_explorable",default=None)
+def mostrar_mapa(mapa, flota, seleccionado, estados_linea=None):
+    _mapa_interactivo(svg=mapa_svg(mapa, flota, seleccionado, estados_linea), key="mapa_2d_explorable", default=None)
 
 
 def tabla_operativa(filas, mensaje):
@@ -163,7 +300,7 @@ def mostrar_2d():
             resultado = None
         mapa = cargar_mapa()
         if resultado is None:
-            mostrar_mapa(mapa, [], None)
+            mostrar_mapa(mapa, [], None, estado_lineas_produccion(None, 0, []))
             st.caption("Cargadores confirmados: CP31, CP32, CP30 y CP29 · Rueda para acercar, arrastra para explorar.")
             return
         estado = estado_en_instante(resultado, reloj["tiempo_s"], mapa)
@@ -177,7 +314,8 @@ def mostrar_2d():
         izquierda,derecha=st.columns([3.4,1],gap="small")
         with izquierda:
             seleccionado=st.selectbox("Ruta destacada", [a["agv"] for a in estado["flota"]], key="ruta_2d")
-            mostrar_mapa(mapa,estado["flota"],seleccionado)
+            estados_linea = estado_lineas_produccion(resultado, estado["tiempo_s"], estado["flota"])
+            mostrar_mapa(mapa, estado["flota"], seleccionado, estados_linea)
             no_utilizables = resultado.get("cargadores_no_utilizables", [])
             if no_utilizables:
                 st.caption("Sin conectividad para recarga: " + ", ".join(no_utilizables))
