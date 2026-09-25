@@ -14,14 +14,15 @@ from app.models.bateria import VELOCIDAD_REFERENCIA_MS
 from app.services.gestor_flota import GestorFlota
 from app.services.indicadores_capacidad import calcular_capacidad
 
-VERSION_MODELO = "flujo_encadenado_suministro_produccion_v3"
+VERSION_MODELO = "flujo_encadenado_suministro_produccion_v5_cadencia_linea_660s"
 
 LINEAS = tuple(GestorFlota.NODOS_SUMINISTRO)
+TIEMPO_PRODUCCION_BASE_S = 660.0  # 11 min por pallet; deja margen logístico dentro del turno de 8 h.
 SUPUESTOS = [
     "Flujo encadenado 1:1: cada pallet terminado requiere primero un suministro de material a su línea y luego un retiro de producto terminado al almacén.",
     "Distribución equilibrada/round-robin entre las cinco líneas por falta de distribución real por línea.",
-    "Las necesidades de material se distribuyen uniformemente durante el turno por falta de histórico de demanda.",
-    "El tiempo de producción por pallet se deriva del escenario base si no se especifica: duración del turno × número de líneas / pallets requeridos.",
+    "Cada línea solicita material con la misma cadencia del ciclo productivo; las cinco líneas generan su primera necesidad al inicio del turno y preabastecen el siguiente ciclo.",
+    "El tiempo de producción base es 660 s (11 min) por pallet; es un supuesto calibrable del prototipo.",
     "Carga y descarga duran 30 s en el escenario base; velocidad, peso, escala y posición inicial siguen siendo parámetros del prototipo.",
     "Cada trayecto operacional comienza y termina a velocidad cero; no se detiene en cada arista del grafo.",
 ]
@@ -68,7 +69,7 @@ class ParametrosSimulacion:
     # Se conserva para leer corridas antiguas, pero el flujo nuevo no espera producto: la solicitud
     # de retiro nace únicamente cuando producción termina.
     espera_disponibilidad_retorno_s: float = 0.0
-    # Si es None, se deriva del objetivo 215/turno repartido en cinco líneas.
+    # Si es None, usa el ciclo base de 11 min por pallet.
     tiempo_produccion_s: float | None = None
     factor_escala_metros_por_unidad: float = 1.0
     ubicacion_inicial: str = "ControlPoint7"
@@ -88,7 +89,7 @@ class ParametrosSimulacion:
         if self.tiempo_produccion_s is not None:
             return self.tiempo_produccion_s
         pallets_linea_max = math.ceil(self.pallets_terminados / len(LINEAS))
-        return self.duracion_turno_s / pallets_linea_max
+        return min(TIEMPO_PRODUCCION_BASE_S, self.duracion_turno_s / pallets_linea_max)
 
     def __post_init__(self):
         if type(self.pallets_terminados) is not int or self.pallets_terminados < 1:
@@ -123,12 +124,13 @@ class DemandaMision:
 
 
 def generar_demanda(parametros):
-    """Necesidades de material uniformes y round-robin; el retorno nace al terminar producción."""
+    """Suministros por cadencia de línea; el retorno nace al terminar producción."""
     cantidad = parametros.pallets_terminados
+    ciclo_s = parametros.tiempo_produccion_efectivo_s
     return tuple(
         DemandaMision(
             i + 1,
-            i * parametros.duracion_turno_s / cantidad,
+            (i // len(LINEAS)) * ciclo_s,
             LINEAS[i % len(LINEAS)],
             "suministro",
             PrioridadSolicitud.NORMAL,
@@ -399,6 +401,16 @@ class SimuladorFlota:
             m["espera_s"] = m["inicio_s"] - m["llegada_s"]
             m["ciclo_movimiento_s"] = m["fin_s"] - m["llegada_s"]
         terminados = [m for m in lista if m["fin_s"] <= p.duracion_turno_s]
+        generadas_turno = [m for m in lista if m["llegada_s"] <= p.duracion_turno_s]
+        activas_corte = [
+            m for m in generadas_turno
+            if m["inicio_s"] <= p.duracion_turno_s < m["fin_s"]
+        ]
+        pendientes_cola_corte = [
+            m for m in generadas_turno
+            if m["llegada_s"] <= p.duracion_turno_s < m["inicio_s"]
+        ]
+        no_generadas_corte = [m for m in lista if m["llegada_s"] > p.duracion_turno_s]
 
         detalle = []
         for agv in vehiculos:
@@ -422,8 +434,18 @@ class SimuladorFlota:
             })
 
         total = max(m["fin_s"] for m in lista)
+        movimientos_restantes_corte = p.movimientos - len(terminados)
         kpis = {
-            "completados_turno": len(terminados), "backlog_corte": p.movimientos - len(terminados),
+            "completados_turno": len(terminados),
+            # Compatibilidad: backlog_corte representa movimientos del plan que aún no
+            # terminaron, incluidos los que todavía no se habían generado al corte.
+            "backlog_corte": movimientos_restantes_corte,
+            "movimientos_restantes_plan_corte": movimientos_restantes_corte,
+            "solicitudes_generadas_turno": len(generadas_turno),
+            "solicitudes_completadas_turno": len(terminados),
+            "solicitudes_pendientes_turno": len(pendientes_cola_corte),
+            "solicitudes_activas_turno": len(activas_corte),
+            "solicitudes_no_generadas_turno": len(no_generadas_corte),
             "throughput_mov_h": len(terminados) / (p.duracion_turno_s / 3600),
             "espera_media_s": sum(m["espera_s"] for m in lista) / len(lista),
             "ciclo_medio_s": sum(m["ciclo_movimiento_s"] for m in lista) / len(lista),
@@ -473,7 +495,7 @@ class SimuladorFlota:
             "parametros": parametros_salida, "demanda": [asdict(c) for c in self.demanda],
             "producciones": sorted(producciones, key=lambda x: x["id_ciclo"]),
             "grafo_sha256": hashlib.sha256(grafo.read_bytes()).hexdigest(),
-            "supuestos": SUPUESTOS + (["Batería lineal temporal: autonomía 8 h, carga completa 3 h, reserva operativa 20%; batería inicial 100%. Una plaza por cargador."] if bateria else []),
+            "supuestos": SUPUESTOS + (["Batería lineal temporal: autonomía 10 h, carga completa 3 h, reserva operativa 20%; batería inicial 100%. Una plaza por cargador."] if bateria else []),
             "limitaciones": [v.replace(" ni batería/recarga sin datos validados", "") for v in LIMITACIONES] if bateria else LIMITACIONES,
             "alcance_kpis": "Pallet completado = producto terminado descargado en almacén. Suministro y retiro se contabilizan como movimientos logísticos separados.",
             "kpis": kpis, "por_agv": detalle, "movimientos": lista, "eventos": traza,

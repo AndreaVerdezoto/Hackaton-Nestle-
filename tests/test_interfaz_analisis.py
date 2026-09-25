@@ -38,10 +38,23 @@ class InterfazTests(unittest.TestCase):
 
         self.assertFalse(at.exception)
         metricas = {m.label: m.value for m in at.metric}
+        self.assertIn("Pallets pendientes", metricas)
         self.assertIn("Solicitudes generadas", metricas)
         self.assertIn("Solicitudes completadas", metricas)
         self.assertIn("Solicitudes pendientes", metricas)
-        self.assertIn("Cola máxima", metricas)
+        self.assertIn("Misiones activas al cierre", metricas)
+        self.assertIn("Aún no generadas", metricas)
+        kpis = at.session_state["escenarios_simulados"][-1]["resultado"]["kpis"]
+        for etiqueta, clave in (
+            ("Pallets pendientes", "pallets_terminados_pendientes"),
+            ("Solicitudes generadas", "solicitudes_generadas_turno"),
+            ("Solicitudes completadas", "solicitudes_completadas_turno"),
+            ("Solicitudes pendientes", "solicitudes_pendientes_turno"),
+            ("Aún no generadas", "solicitudes_no_generadas_turno"),
+        ):
+            # Resultados aparece antes del contador del reloj 2D (inicialmente t=0).
+            valor_resultados = next(m.value for m in at.metric if m.label == etiqueta)
+            self.assertEqual(valor_resultados, str(kpis[clave]))
         self.assertTrue(any(x.label == "Ver detalle de solicitudes" for x in at.expander))
         self.assertTrue(any(x.label == "Ver análisis técnico" for x in at.expander))
 

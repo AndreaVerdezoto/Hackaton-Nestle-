@@ -70,6 +70,19 @@ class NestorTests(unittest.TestCase):
         self.assertNotIn("recomendaciones", respuesta)
         self.assertIn("sin alertas operativas relevantes", respuesta["respuesta"])
 
+    def test_diagnostico_sin_pendientes_lo_aclara(self):
+        don = Nestor(analizador=AnalizadorFalso(metricas_base(
+            solicitudes_pendientes_backlog=0,
+            tiempo_promedio_espera_s=0.0,
+            utilizacion_flota_pct=55.0,
+        )))
+
+        respuesta = don.responder("¿Por qué hay solicitudes pendientes?")
+
+        self.assertEqual(respuesta["tipo"], "DIAGNOSTICO")
+        self.assertIn("No quedaron solicitudes pendientes al cierre del turno", respuesta["respuesta"])
+        self.assertNotIn("quedara 0 solicitudes pendientes", respuesta["respuesta"])
+
     def test_diagnostico_con_varios_problemas_no_inventa_causalidad(self):
         problemas = [
             problema("BACKLOG_ELEVADO", "ALTA"),
@@ -123,7 +136,7 @@ class NestorTests(unittest.TestCase):
         respuesta = don.responder("¿Cómo está la flota?")
 
         self.assertEqual(respuesta["tipo"], "ESTADO_GENERAL")
-        self.assertIn("La flota completó 214 misiones", respuesta["respuesta"])
+        self.assertIn("La flota completó 214 movimientos logísticos", respuesta["respuesta"])
         self.assertIn("93.7 %", respuesta["respuesta"])
         self.assertIn("Quedó 1 solicitud pendiente", respuesta["respuesta"])
         self.assertNotIn("1 solicitudes pendientes", respuesta["respuesta"])
