@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import math
 
 VELOCIDAD_REFERENCIA_MS = 1.0
-AUTONOMIA_HORAS = 8.0
+AUTONOMIA_HORAS = 10.0
 CARGA_COMPLETA_HORAS = 3.0
 RESERVA_PCT = 20.0  # Regla del prototipo, no requisito del fabricante.
 CARGA_PALLET_S = 30.0

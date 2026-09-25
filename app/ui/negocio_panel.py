@@ -40,7 +40,7 @@ def entradas_rentabilidad(escenario, cantidad):
     st.subheader("Rentabilidad")
     st.caption(f"{cantidad} AGV · USD. Introduce datos de planta cuando estén disponibles; hasta validarlos son supuestos editables.")
     origen = escenario["parametros_economicos"]
-    valores = {}
+    valores = {campo: origen.get(campo) for campo in ("pallets_adicionales_turno", "margen_pallet")}
 
     def entrada(campo, etiqueta, opcional=False):
         valor = origen.get(campo)
@@ -53,18 +53,15 @@ def entradas_rentabilidad(escenario, cantidad):
 
     for titulo, etiquetas in [
         ("Inversión", [("costo_agv", "Costo por AGV (USD)"), ("integracion", "Instalación / integración (USD)")]),
-        ("Beneficio", [("ahorro_anual_estimado", "Ahorro anual estimado (USD/año)"),
-                      ("pallets_adicionales_turno", "Pallets adicionales por turno (supuesto de producción)"),
-                      ("margen_pallet", "Contribución por pallet adicional (USD)")]),
+        ("Beneficio", [("ahorro_anual_estimado", "Ahorro anual estimado (USD/año)")]),
         ("Operación", [("turnos_dia", "Turnos por día"), ("dias_anio", "Días operativos por año")]),
         ("Objetivo", [("payback_objetivo_anios", "Payback deseado (años)")]),
     ]:
         st.markdown(f"**{titulo}**")
         for columna, (campo, etiqueta) in zip(st.columns(len(etiquetas)), etiquetas):
             with columna:
-                entrada(campo, etiqueta)
-    st.caption("El ahorro anual es el ahorro evitable antes del OPEX de los AGV; sustituye el desglose avanzado, no se suma a él. "
-               "La producción adicional es un supuesto independiente del transporte. Para evaluar solo ahorros, declara 0 pallets adicionales.")
+                entrada(campo, etiqueta, opcional=campo in {"pallets_adicionales_turno", "margen_pallet"})
+    st.caption("El ahorro anual es el ahorro evitable antes del OPEX de los AGV; sustituye el desglose avanzado, no se suma a él.")
     with st.expander("Costos avanzados", expanded=False):
         st.caption("Opcionales para introducir un ahorro directo; los costos iniciales y OPEX sí deben confirmarse para obtener ROI exacto. "
                    "Un campo vacío no se considera costo cero. Operación manual excluye personal para evitar duplicación.")

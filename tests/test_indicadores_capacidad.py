@@ -28,10 +28,11 @@ class CapacidadTests(unittest.TestCase):
         self.assertEqual(r, antes)
         self.assertAlmostEqual(k['ultimo_pt_llegada_s'] + k['ultimo_pt_espera_agv_s'] + k['ultimo_pt_servicio_s'],
                                r['kpis']['tiempo_producto_terminado_s'])
-        esperas = [m['inicio_s']-m['llegada_s'] for m in r['movimientos']]
-        self.assertAlmostEqual(k['espera_agv_media_pt_s'], sum(esperas)/215)
-        self.assertEqual(k['espera_agv_maxima_pt_s'], max(esperas))
-        self.assertEqual(k['pallets_esperaron_agv'], sum(e > 1e-9 for e in esperas))
+        pt = [m for m in r['movimientos'] if m['tipo'] == 'producto_terminado']
+        esperas_pt = [m['inicio_s'] - m['llegada_s'] for m in pt]
+        self.assertAlmostEqual(k['espera_agv_media_pt_s'], sum(esperas_pt) / len(esperas_pt))
+        self.assertEqual(k['espera_agv_maxima_pt_s'], max(esperas_pt))
+        self.assertEqual(k['pallets_esperaron_agv'], sum(e > 1e-9 for e in esperas_pt))
 
     def test_suministros_no_se_cuentan_como_pallets_que_esperaron(self):
         r = SimuladorFlota().ejecutar(2)

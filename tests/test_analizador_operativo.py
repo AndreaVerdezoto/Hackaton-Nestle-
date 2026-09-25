@@ -53,7 +53,7 @@ class AnalizadorOperativoTests(unittest.TestCase):
         self.assertEqual(metricas["cantidad_recargas"], sum(len(v) for v in resultado["recargas"].values()))
 
     def test_detecta_problemas_con_umbrales_configurables(self):
-        resultado = SimuladorFlota().ejecutar(2)
+        resultado = SimuladorFlota(ParametrosSimulacion(tiempo_carga_s=1000, tiempo_descarga_s=1000)).ejecutar(2)
         analizador = AnalizadorOperativo(
             resultado,
             UmbralesAnalizadorOperativo(

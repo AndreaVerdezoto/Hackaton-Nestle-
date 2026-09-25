@@ -51,14 +51,24 @@ class Nestor:
             relacionados = self._filtrar_problemas(activos, {
                 "BACKLOG_ELEVADO", "ESPERA_ELEVADA", "UTILIZACION_ALTA",
             })
-            texto = (
-                "La flota terminó el escenario con una utilización de {utilizacion} y {espera} de espera media. "
-                "Esto puede haber contribuido a que quedara {pendientes}, aunque los datos no permiten atribuirlo a una única causa."
-            ).format(
-                pendientes=self._solicitudes(usadas.get("solicitudes_pendientes_backlog")),
-                espera=self._seg(usadas.get("tiempo_promedio_espera_s")),
-                utilizacion=self._pct(usadas.get("utilizacion_flota_pct")),
-            )
+            cantidad_pendiente = usadas.get("solicitudes_pendientes_backlog")
+            if cantidad_pendiente == 0:
+                texto = (
+                    "No quedaron solicitudes pendientes al cierre del turno. "
+                    "La flota terminó el escenario con una utilización de {utilizacion} y {espera} de espera media."
+                ).format(
+                    espera=self._seg(usadas.get("tiempo_promedio_espera_s")),
+                    utilizacion=self._pct(usadas.get("utilizacion_flota_pct")),
+                )
+            else:
+                texto = (
+                    "La flota terminó el escenario con una utilización de {utilizacion} y {espera} de espera media. "
+                    "Esto puede haber contribuido a que quedara {pendientes}, aunque los datos no permiten atribuirlo a una única causa."
+                ).format(
+                    pendientes=self._solicitudes(cantidad_pendiente),
+                    espera=self._seg(usadas.get("tiempo_promedio_espera_s")),
+                    utilizacion=self._pct(usadas.get("utilizacion_flota_pct")),
+                )
             return self._respuesta(intencion, texto, usadas, relacionados, [], relacionados)
 
         if intencion == "BATERIA":
@@ -307,7 +317,7 @@ class Nestor:
         if valor is None:
             return "dato no disponible"
         cantidad = self._entero(valor)
-        return f"{cantidad} mision" if cantidad == 1 else f"{cantidad} misiones"
+        return f"{cantidad} movimiento logístico" if cantidad == 1 else f"{cantidad} movimientos logísticos"
 
     def _solicitudes(self, valor):
         if valor is None:

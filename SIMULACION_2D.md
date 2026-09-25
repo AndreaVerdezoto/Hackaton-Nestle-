@@ -10,15 +10,15 @@ La pestaña Análisis de flota conserva el modelo previo sin batería y sus par�
 
 `app/models/bateria.py` centraliza las referencias y el modelo temporal:
 
-- Consumo: 100/28800 puntos porcentuales por segundo simulado, tanto libre como ocupado, cargando/descargando pallet o esperando.
+- Consumo: 100/36000 puntos porcentuales por segundo simulado, tanto libre como ocupado, cargando/descargando pallet o esperando.
 - Recarga conectado: 100/10800 puntos por segundo; no se descuenta simultáneamente consumo operativo.
-- Uso restante hasta reserva: max(0, batería−20) × 28800/100 segundos.
+- Uso restante hasta reserva: max(0, batería−20) × 36000/100 segundos.
 - Tiempo restante de carga: (100−batería) × 10800/100 segundos.
 - Se asigna misión solo si batería actual − consumo del servicio completo ≥20%. Se usan los tiempos cinemáticos existentes, incluida carga/descarga y disponibilidad de producto. Sin factor por peso.
 
 Reserva 20% es política del prototipo. Autonomía y recarga lineales son simplificaciones, no telemetría ni un modelo eléctrico del fabricante. El 20% puede emplearse en el desplazamiento al cargador; nunca se planifica viaje/espera al cargador si la energía disponible no alcanza. El AGV permanece fuera de candidatos hasta el 100%.
 
-72% equivale a 4 h 10 min de operación antes de reserva (redondeo a minutos). A 45%, la carga completa requiere 1 h 39 min. Al 100%, el uso antes de reserva es 6 h 24 min, no 8 h: las 8 h describen la descarga completa teórica.
+72% equivale a 5 h 12 min de operación antes de reserva (redondeo a minutos). A 45%, la carga completa requiere 1 h 39 min. Al 100%, el uso antes de reserva es 8 h, no 10 h: las 10 h describen la descarga completa teórica.
 
 ## Cargadores confirmados
 

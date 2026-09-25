@@ -12,14 +12,20 @@ from streamlit.testing.v1 import AppTest
 
 
 class BateriaTests(unittest.TestCase):
+    def test_autonomia_10h_y_reserva_tras_turno_8h(self):
+        self.assertEqual(MODELO_BATERIA.autonomia_s, 36000)
+        self.assertEqual(MODELO_BATERIA.uso_restante_s(100), 28800)
+        self.assertEqual(MODELO_BATERIA.nivel(100, 28800), 20)
+        self.assertEqual(MODELO_BATERIA.nivel(100, 36000), 0)
+
     def test_ejemplos_restantes(self):
-        self.assertAlmostEqual(MODELO_BATERIA.uso_restante_s(72), 14976)
-        self.assertEqual(horas_minutos(MODELO_BATERIA.uso_restante_s(72)), '4 h 10 min')
+        self.assertAlmostEqual(MODELO_BATERIA.uso_restante_s(72), 18720)
+        self.assertEqual(horas_minutos(MODELO_BATERIA.uso_restante_s(72)), '5 h 12 min')
         self.assertEqual(horas_minutos(MODELO_BATERIA.carga_restante_s(45)), '1 h 39 min')
         self.assertEqual(MODELO_BATERIA.uso_restante_s(20), 0)
 
     def test_tiempo_y_limites(self):
-        self.assertEqual(MODELO_BATERIA.nivel(100, 1800), 93.75)
+        self.assertEqual(MODELO_BATERIA.nivel(100, 1800), 95.0)
         self.assertEqual(MODELO_BATERIA.nivel(20, 8640, cargando=True), 100)
         self.assertEqual(MODELO_BATERIA.nivel(10, 100000), 0)
         self.assertEqual(MODELO_BATERIA.nivel(90, 100000, cargando=True), 100)
@@ -33,7 +39,7 @@ class BateriaTests(unittest.TestCase):
         reloj['ejecutando'] = False
         avanzar_reloj(reloj, 2000, 28800)
         self.assertEqual(reloj['tiempo_s'], 1800)
-        self.assertEqual(bateria_en_instante([], reloj['tiempo_s']), 93.75)
+        self.assertEqual(bateria_en_instante([], reloj['tiempo_s']), 95.0)
 
 
 class SimulacionBateriaTests(unittest.TestCase):
@@ -68,7 +74,7 @@ class SimulacionBateriaTests(unittest.TestCase):
         antes=deepcopy(self.r)
         estado=estado_en_instante(self.r,60)
         self.assertTrue(any(a['estado']=='DISPONIBLE' for a in estado['flota']))
-        self.assertTrue(all(abs(a['bateria']-(100-100*60/28800))<1e-9 for a in estado['flota']))
+        self.assertTrue(all(abs(a['bateria']-(100-100*60/36000))<1e-9 for a in estado['flota']))
         self.assertEqual(antes,self.r)
 
     def test_interpolacion_continua(self):

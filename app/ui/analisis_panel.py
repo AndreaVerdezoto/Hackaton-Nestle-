@@ -112,11 +112,8 @@ def mostrar_dimensionamiento():
                             help="Convierte la distancia del grafo a metros. Calibrar con medidas reales de planta.")
             st.number_input("Peso por pallet (kg)", min_value=1.0, max_value=800.0, key="ana_peso_pallet_kg",
                             help="Supuesto: 500 kg; máximo 800 kg. El peso no modifica la cinemática.")
+            st.caption("Escenario base: 500 kg · Límite operativo: 800 kg · Capacidad nominal AGV: 1000 kg")
         with derecha:
-            st.number_input("Espera por producto terminado (s)", min_value=0.0, key="ana_espera_disponibilidad_retorno_s",
-                            help="Espera por producto terminado al llegar a recogerlo. Cero no significa producción instantánea.")
-            st.number_input("Movimientos de suministro por turno", min_value=0, key="ana_movimientos_suministro",
-                            help="Demanda independiente opcional de almacén hacia líneas.")
             st.text_input("Ubicación inicial común", key="ana_ubicacion_inicial",
                           help="Supuesto: todos los AGV parten de ControlPoint7, en almacén. Debe ser un nodo válido.")
     st.button("Restablecer valores base", on_click=restablecer)
@@ -206,30 +203,62 @@ def mostrar_resumen_operativo(resultado):
         ("Pallets requeridos", p["pallets_terminados"]),
         ("Pallets completados", k["pallets_terminados_turno"]),
         ("Cumplimiento", _numero(k.get("cumplimiento_pct"), " %")),
-        ("Utilización promedio", _numero(k.get("utilizacion_media_pct"), " %")),
-        ("Espera promedio", _numero(espera, " s")),
-        ("Pendientes al cierre", k.get("backlog_corte", 0)),
+        ("Utilización en misiones", _numero(k.get("utilizacion_media_pct"), " %")),
+        ("Espera retiro PT", _numero(espera, " s")),
+        ("Pallets pendientes", k.get("pallets_terminados_pendientes", 0)),
     ])
-    st.caption("Resumen del escenario ya ejecutado; cambiar de pestaña no recalcula la simulación.")
+    st.caption("Utilización: tiempo en misiones dentro del turno. Espera retiro PT: promedio de toda la corrida. Cambiar de pestaña no recalcula la simulación.")
 
 
 def mostrar_gestion_solicitudes(resultado):
     k, p = resultado["kpis"], resultado["parametros"]
     st.subheader("Gestión de solicitudes")
-    total = k.get("movimientos_logisticos_totales", len(resultado["demanda"]))
-    completadas = k.get("completados_turno", 0)
-    pendientes = k.get("backlog_corte", 0)
-    cola_maxima = k.get("backlog_maximo", k.get("backlog_maximo_agv", 0))
+    limite_turno = p["duracion_turno_s"]
+    movimientos = resultado["movimientos"]
+    total = k.get("movimientos_logisticos_totales", len(movimientos))
+    generadas = k.get(
+        "solicitudes_generadas_turno",
+        sum(m["llegada_s"] <= limite_turno for m in movimientos),
+    )
+    completadas = k.get(
+        "solicitudes_completadas_turno",
+        sum(m["fin_s"] <= limite_turno for m in movimientos),
+    )
+    pendientes = k.get(
+        "solicitudes_pendientes_turno",
+        sum(m["llegada_s"] <= limite_turno < m["inicio_s"] for m in movimientos),
+    )
+    activas = k.get(
+        "solicitudes_activas_turno",
+        sum(m["inicio_s"] <= limite_turno < m["fin_s"] for m in movimientos),
+    )
+    no_generadas = k.get(
+        "solicitudes_no_generadas_turno",
+        sum(m["llegada_s"] > limite_turno for m in movimientos),
+    )
     _tarjetas([
-        ("Solicitudes generadas", total),
+        ("Solicitudes generadas", generadas),
         ("Solicitudes completadas", completadas),
         ("Solicitudes pendientes", pendientes),
-        ("Cola máxima", cola_maxima),
-    ], columnas=4)
+        ("Misiones activas al cierre", activas),
+        ("Aún no generadas", no_generadas),
+    ], columnas=5)
+    st.caption(
+        f"Plan logístico total: {total} movimientos. Al cierre: {generadas} solicitudes generadas = "
+        f"{completadas} completadas + {pendientes} pendientes + {activas} activas; "
+        f"{no_generadas} movimientos del plan aún no se habían generado."
+    )
     with st.expander("Ver detalle de solicitudes", expanded=False):
         filas = []
-        limite_turno = p["duracion_turno_s"]
-        for m in resultado["movimientos"]:
+        for m in movimientos:
+            if m["fin_s"] <= limite_turno:
+                estado = "Completada"
+            elif m["inicio_s"] <= limite_turno:
+                estado = "Activa al cierre"
+            elif m["llegada_s"] <= limite_turno:
+                estado = "Pendiente al cierre"
+            else:
+                estado = "No generada al cierre"
             filas.append({
                 "ID": f"M-{m['numero']:03d}",
                 "Tipo": m["tipo"],
@@ -241,7 +270,7 @@ def mostrar_gestion_solicitudes(resultado):
                 "Inicio (s)": round(m["inicio_s"], 2),
                 "Fin (s)": round(m["fin_s"], 2),
                 "Espera (s)": round(m.get("espera_s", m["inicio_s"] - m["llegada_s"]), 2),
-                "Estado": "Completada" if m["fin_s"] <= limite_turno else "Pendiente al cierre",
+                "Estado": estado,
             })
         st.dataframe(filas, hide_index=True, width="stretch")
 
@@ -295,9 +324,9 @@ def mostrar_comparacion_resultados(historial, etiquetas):
             "AGV": r["numero_agv"],
             "Pallets completados": k["pallets_terminados_turno"],
             "Cumplimiento (%)": round(k["cumplimiento_pct"], 1),
-            "Pendientes": k["backlog_corte"],
-            "Espera promedio (s)": round(k.get("espera_agv_media_pt_s", k["espera_media_s"]), 2),
-            "Utilización (%)": round(k["utilizacion_media_pct"], 1),
+            "Pallets pendientes": k["pallets_terminados_pendientes"],
+            "Espera retiro PT (s)": round(k.get("espera_agv_media_pt_s", k["espera_media_s"]), 2),
+            "Utilización en misiones (%)": round(k["utilizacion_media_pct"], 1),
             "Capacidad disponible (%)": round(k["capacidad_disponible_pct"], 1),
         })
     st.dataframe(filas, hide_index=True, width="stretch")
@@ -314,28 +343,39 @@ def mostrar_rentabilidad():
         return
     r = escenario["resultado"]
     n = r["numero_agv"]
+    k = r["kpis"]
+    p = r["parametros"]
     st.caption(f"Escenario activo: {n} AGV. Los campos vacíos se mantienen como dato pendiente, no como cero.")
-    economia_guardada = escenario["economia"]
-    st.subheader("Resumen económico")
-    payback_guardado = ("No aplicable" if economia_guardada["beneficio_neto_anual"] is not None and economia_guardada["beneficio_neto_anual"] <= 0
-                        else numero(economia_guardada["payback_anios"], " años"))
-    roi_guardado = "No aplicable (CAPEX cero)" if economia_guardada["capex"] == 0 else numero(economia_guardada["roi_anual_pct"], " %")
-    tarjetas([
-        ("Inversión", numero(economia_guardada["capex"], " USD")),
-        ("Beneficio anual", numero(economia_guardada["beneficio_neto_anual"], " USD")),
-        ("ROI", roi_guardado),
-        ("Payback", payback_guardado),
-    ])
+
+    st.subheader("Escenario simulado")
+    movimientos_totales = k.get("movimientos_logisticos_totales", len(r.get("movimientos", [])))
+    datos_simulacion = [
+        ("Flota", f"{n} AGV"),
+        ("Pallets almacenados", f"{k['pallets_terminados_turno']} / {p['pallets_terminados']}"),
+        ("Movimientos completados", f"{k['completados_turno']} / {movimientos_totales}"),
+        ("Cumplimiento", f"{k['cumplimiento_pct']:.1f} %"),
+    ]
+    for columna, (titulo, valor) in zip(st.columns(4), datos_simulacion):
+        columna.metric(titulo, valor)
+    st.caption("Datos operativos del mismo escenario ejecutado en Dimensionamiento y visualizado en Simulación 2D.")
+
     try:
         with st.expander("Situación actual / Línea base", expanded=False):
             st.caption("Dato de planta / supuesto editable. Completa únicamente los datos disponibles.")
             base = campos(escenario, LineaBase, "base", {
                 "movimientos_turno": "Movimientos actuales por turno",
                 "tiempo_manual_movimiento_s": "Tiempo manual por movimiento (s)",
-                "perdida_produccion_turno_s": "Producción perdida por espera logística (s/turno)",
-                "pallets_terminados_turno": "Pallets terminados actuales por turno",
                 "espera_logistica_media_s": "Espera logística actual media por movimiento (s)",
             })
+            # Conserva los dos datos históricos aunque ya no se muestren: no intervienen en los cálculos actuales.
+            base = LineaBase(
+                movimientos_turno=base.movimientos_turno,
+                tiempo_manual_movimiento_s=base.tiempo_manual_movimiento_s,
+                perdida_produccion_turno_s=escenario["linea_base"].get("perdida_produccion_turno_s"),
+                pallets_terminados_turno=escenario["linea_base"].get("pallets_terminados_turno"),
+                espera_logistica_media_s=base.espera_logistica_media_s,
+                comparacion_equivalente=base.comparacion_equivalente,
+            )
         impacto = comparar_linea_base(r, base)
         st.subheader("Impacto operativo frente a línea base")
         tarjetas([
@@ -364,11 +404,24 @@ def mostrar_rentabilidad():
         ("ROI anual", roi_texto),
         ("Payback", payback_texto),
     ])
+    objetivo_payback = economia.payback_objetivo_anios
+    beneficio_minimo = e.get("beneficio_neto_anual_minimo")
+    if beneficio_minimo is None:
+        st.markdown(
+            f"**Punto de equilibrio ({objetivo_payback:g} años):** "
+            "completa la inversión inicial para calcular el beneficio neto anual mínimo."
+        )
+    else:
+        st.markdown(
+            f"**Punto de equilibrio ({objetivo_payback:g} años):** beneficio neto anual mínimo "
+            f"**{numero(beneficio_minimo, ' USD/año')}**."
+        )
+
     if e["capex"] is not None and e["beneficio_neto_anual"] is not None:
         st.write(e["estado"])
     else:
         st.info("Aún no hay información suficiente para calcular ROI y payback.")
-    with st.expander("Punto de equilibrio", expanded=False):
+    with st.expander("Ver detalle del punto de equilibrio", expanded=False):
         mostrar_equilibrio(e, economia, n)
     with st.expander("¿Cómo se calcula la rentabilidad?", expanded=False):
         st.code("CAPEX = AGV × costo_AGV + integración + infraestructura + cargadores + otros_iniciales\n"
@@ -396,7 +449,7 @@ def mostrar_metodologia():
     with st.expander("Datos conocidos y configurados", expanded=True):
         st.write("Meta operativa: al menos 215 pallets de producto terminado trasladados al almacén en un turno de 8 horas.")
         st.write("El prototipo usa el grafo JSON del proyecto para rutas y distancias. FlexSim permanece como simulación independiente.")
-        st.write("Datos de referencia del AGV: capacidad máxima 1000 kg, velocidad máxima 1 m/s, autonomía conservadora de 8 h y recarga de 3 h.")
+        st.write("Datos de referencia del AGV: capacidad máxima 1000 kg, velocidad máxima 1 m/s, autonomía conservadora de 10 h y recarga de 3 h.")
     with st.expander("Supuestos editables", expanded=False):
         mostrar_supuestos()
     with st.expander("Flujo de simulación", expanded=False):
@@ -421,7 +474,11 @@ def mostrar_analisis_tecnico(resultado):
             ("suministros_turno", "Suministros completados dentro del turno"),
             ("suministros_pendientes", "Suministros pendientes"),
             ("completados_turno", "Movimientos completados"),
-            ("backlog_corte", "Movimientos pendientes al terminar el turno"),
+            ("solicitudes_generadas_turno", "Solicitudes generadas al cierre"),
+            ("solicitudes_pendientes_turno", "Solicitudes pendientes al cierre"),
+            ("solicitudes_activas_turno", "Misiones activas al cierre"),
+            ("solicitudes_no_generadas_turno", "Movimientos aún no generados al cierre"),
+            ("backlog_corte", "Movimientos restantes del plan al cierre"),
             ("throughput_mov_h", "Movimientos por hora"),
             ("espera_media_s", "Espera media (s)"),
             ("ciclo_medio_s", "Tiempo de ciclo medio (s)"),
@@ -498,7 +555,11 @@ def mostrar_metricas_completas(resultados):
             ("suministros_turno", "Suministros completados dentro del turno"),
             ("suministros_pendientes", "Suministros pendientes"),
             ("completados_turno", "Movimientos completados"),
-            ("backlog_corte", "Movimientos pendientes al terminar el turno"),
+            ("solicitudes_generadas_turno", "Solicitudes generadas al cierre"),
+            ("solicitudes_pendientes_turno", "Solicitudes pendientes al cierre"),
+            ("solicitudes_activas_turno", "Misiones activas al cierre"),
+            ("solicitudes_no_generadas_turno", "Movimientos aún no generados al cierre"),
+            ("backlog_corte", "Movimientos restantes del plan al cierre"),
             ("throughput_mov_h", "Movimientos por hora"), ("espera_media_s", "Espera media (s)"),
             ("ciclo_medio_s", "Tiempo de ciclo medio (s)"), ("muestra_promedios", "Movimientos incluidos en los promedios"),
             ("backlog_maximo", "Cola máxima"), ("utilizacion_media_pct", "Utilización media (%)"),
