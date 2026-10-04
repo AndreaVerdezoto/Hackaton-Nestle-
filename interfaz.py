@@ -34,13 +34,12 @@ st.html("""
 
 st.session_state.setdefault("modo_principal", "Dimensionamiento")
 
-dimensionamiento, resultados, simulacion, rentabilidad, metodologia = st.tabs([
-    "Dimensionamiento", "Resultados", "Simulación 2D", "Rentabilidad", "Metodología"
+dimensionamiento, resultados, simulacion, metodologia = st.tabs([
+    "Dimensionamiento", "Resultados", "Simulación 2D", "Metodología"
 ])
 
 from app.ui.analisis_panel import (
-    mostrar_dimensionamiento, mostrar_resultados,
-    mostrar_rentabilidad, mostrar_metodologia,
+    mostrar_dimensionamiento, mostrar_resultados, mostrar_metodologia,
 )
 
 with dimensionamiento:
@@ -52,9 +51,6 @@ with resultados:
 with simulacion:
     from app.ui.simulacion_2d import mostrar_2d
     mostrar_2d()
-
-with rentabilidad:
-    mostrar_rentabilidad()
 
 with metodologia:
     mostrar_metodologia()

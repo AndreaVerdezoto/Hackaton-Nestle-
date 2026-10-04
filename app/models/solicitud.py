@@ -1,6 +1,8 @@
 from enum import Enum
 from datetime import datetime
 
+from app.models.pallet import Pallet
+
 
 class EstadoSolicitud(str, Enum):
     PENDIENTE = "PENDIENTE"
@@ -28,37 +30,47 @@ class SolicitudTraslado:
         origen,
         destino,
         prioridad=PrioridadSolicitud.NORMAL,
-        estacion_origen=None,
-        estacion_destino=None,
         id_ciclo=None,
-        agv_reservado=None,
-        distancia_retorno=0.0,
+        pallet=None,
     ):
-        if peso <= 0:
+        peso_pallet = pallet.peso if pallet is not None else peso
+        if peso_pallet <= 0:
             raise ValueError("El peso del pallet debe ser mayor que 0.")
 
-        if peso > self.PESO_MAXIMO_PALLET:
+        if peso_pallet > self.PESO_MAXIMO_PALLET:
             raise ValueError(
                 f"El pallet supera el peso máximo permitido de "
                 f"{self.PESO_MAXIMO_PALLET} kg."
             )
-        
+
         self.id_tarea_wms = id_tarea_wms
-        self.id_pallet = id_pallet
-        self.producto = producto
-        self.peso = peso
+        self.pallet = pallet or Pallet(
+            id_pallet=id_pallet,
+            producto=producto,
+            lote=None,
+            cantidad_cajas=None,
+            peso=peso,
+            altura=None,
+            ubicacion=origen,
+        )
         self.origen = origen
         self.destino = destino
         self.prioridad = prioridad
-        # Opcionales: las solicitudes manuales conservan sus mapeos actuales.
-        self.estacion_origen = estacion_origen
-        self.estacion_destino = estacion_destino
         self.id_ciclo = id_ciclo
-        self.agv_reservado = agv_reservado
-        self.distancia_retorno = distancia_retorno
-
         self.estado = EstadoSolicitud.PENDIENTE
         self.fecha_creacion = datetime.now()
+
+    @property
+    def id_pallet(self):
+        return self.pallet.id_pallet
+
+    @property
+    def producto(self):
+        return self.pallet.producto
+
+    @property
+    def peso(self):
+        return self.pallet.peso
 
     def __str__(self):
         return (

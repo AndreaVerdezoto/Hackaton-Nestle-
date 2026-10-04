@@ -6,8 +6,6 @@ VELOCIDAD_REFERENCIA_MS = 1.0
 AUTONOMIA_HORAS = 10.0
 CARGA_COMPLETA_HORAS = 3.0
 RESERVA_PCT = 20.0  # Regla del prototipo, no requisito del fabricante.
-CARGA_PALLET_S = 30.0
-DESCARGA_PALLET_S = 30.0
 CARGADORES = ("ControlPoint31", "ControlPoint28", "ControlPoint32", "ControlPoint30", "ControlPoint29")
 
 
@@ -34,6 +32,9 @@ class ModeloBateria:
 
     def carga_restante_s(self, bateria):
         return (100 - min(100.0, max(0.0, bateria))) * self.carga_completa_s / 100
+
+    def necesita_recarga(self, bateria):
+        return bateria <= self.reserva_pct + 1e-9
 
     def admite_mision(self, bateria, servicio_s):
         return bateria - self.consumo(servicio_s) >= self.reserva_pct - 1e-9

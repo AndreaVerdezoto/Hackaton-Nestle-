@@ -404,7 +404,7 @@ class NestorTests(unittest.TestCase):
         self.assertLessEqual(len(respuesta["acciones_revision"]), 2)
         self.assertEqual(
             respuesta["acciones_revision"],
-            ["Conviene revisar los reposicionamientos entre orígenes y destinos."],
+            ["Conviene revisar los desplazamientos vacíos de los AGV hacia los puntos de recogida."],
         )
 
     def test_variaciones_naturales_de_diagnostico(self):

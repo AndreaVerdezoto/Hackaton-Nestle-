@@ -42,7 +42,9 @@ class AnalizadorOperativo:
         niveles_bateria = self._niveles_bateria()
         return {
             "misiones_completadas": self._numero(kpis.get("completados_turno")),
-            "solicitudes_pendientes_backlog": self._numero(kpis.get("backlog_corte")),
+            "solicitudes_pendientes_backlog": self._numero(
+                kpis.get("solicitudes_pendientes_turno", kpis.get("backlog_corte"))
+            ),
             "backlog_maximo": self._numero(kpis.get("backlog_maximo_agv", kpis.get("backlog_maximo"))),
             "tiempo_promedio_espera_s": self._numero(kpis.get("espera_media_s")),
             "tiempo_promedio_ciclo_s": self._numero(kpis.get("ciclo_medio_s")),

@@ -92,12 +92,13 @@ def nombre_nodo(nodo):
         "ControlPoint4": "Almacén CP4",
         "ControlPoint5": "Almacén CP5",
         "ControlPoint6": "Almacén CP6",
-        # Entrada de materia prima a las líneas.
-        "ControlPoint23": "Entrada Cookies 1",
-        "ControlPoint21": "Entrada Cookies 2",
-        "ControlPoint22": "Entrada Cookies 3",
-        "ControlPoint17": "Entrada Chocolate",
-        "ControlPoint14": "Entrada Wafer",
+        # Puntos físicos de las áreas de producción conservados en el grafo.
+        # Ya no generan misiones de suministro; siguen disponibles como nodos de ruta.
+        "ControlPoint23": "CP23 · Área Cookies 1",
+        "ControlPoint21": "CP21 · Área Cookies 2",
+        "ControlPoint22": "CP22 · Área Cookies 3",
+        "ControlPoint17": "CP17 · Área Chocolate",
+        "ControlPoint14": "CP14 · Área Wafer",
         # Fin de línea / producto terminado.
         "ControlPoint24": "Cookies 1",
         "ControlPoint25": "Cookies 2",
@@ -118,12 +119,12 @@ LINEAS_VISUALES = {
 
 
 def estado_lineas_produccion(resultado, tiempo_s, flota):
-    """Representa la producción real encadenada del resultado del simulador.
+    """Representa la producción independiente registrada por el simulador.
 
-    La producción comienza cuando terminó la entrega de material a la línea y
-    finaliza en el instante registrado en ``resultado["producciones"]``.
+    Cada línea produce por su propia cadencia y, al completar un pallet, genera
+    una solicitud de retiro hacia el almacén.
     """
-    base = {linea: {"estado": "ESPERA MATERIAL", "progreso": None, "pallet": "—"}
+    base = {linea: {"estado": "EN ESPERA", "progreso": None, "pallet": "—"}
             for linea in LINEAS_VISUALES}
     if not resultado:
         return base
@@ -183,7 +184,7 @@ def estado_lineas_produccion(resultado, tiempo_s, flota):
 
         futuras = [prod for prod in producciones if prod["inicio_s"] > t]
         if futuras:
-            por_linea[linea] = {"estado": "ESPERA MATERIAL", "progreso": None, "pallet": "—"}
+            por_linea[linea] = {"estado": "EN ESPERA", "progreso": None, "pallet": "—"}
         else:
             por_linea[linea] = {"estado": "COMPLETO", "progreso": None, "pallet": "—"}
 
@@ -217,7 +218,7 @@ def lineas_produccion_svg(nodos, xy, estados_linea=None):
         elif nombre_estado == "COMPLETO":
             texto_estado, color_estado_linea = "COMPLETO", "#64748b"
         else:
-            texto_estado, color_estado_linea = "ESPERA MATERIAL", "#8b98a8"
+            texto_estado, color_estado_linea = "EN ESPERA", "#8b98a8"
 
         partes.append(f'<line x1="{x+5}" y1="{y}" x2="{bx}" y2="{y}" stroke="#aeb9c6" stroke-width="2"/>')
         partes.append(f'<rect x="{bx}" y="{by}" width="{bw}" height="{bh}" rx="10" fill="#ffffff" stroke="#dfe5eb" stroke-width="1.2"/>')
@@ -281,8 +282,6 @@ def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
         # Pallet Transit, ambos lados.
         "ControlPoint13", "ControlPoint12", "ControlPoint11", "ControlPoint27",
         "ControlPoint8", "ControlPoint10", "ControlPoint7", "ControlPoint9",
-        # Entradas de materia prima.
-        "ControlPoint23", "ControlPoint21", "ControlPoint22", "ControlPoint17", "ControlPoint14",
         # Fines de línea.
         "ControlPoint24", "ControlPoint25", "ControlPoint26", "ControlPoint18", "ControlPoint15",
     }
@@ -342,11 +341,7 @@ def mapa_svg(mapa, flota, seleccionado, estados_linea=None):
             partes.append(f'<circle cx="0" cy="0" r="23" fill="none" stroke="{color}" stroke-opacity=".45" stroke-width="1.5"/>')
         partes.append(f'<rect x="-13" y="-9" rx="4" width="26" height="18" fill="{color}" stroke="white" stroke-width="2"/><rect x="-7" y="-5" width="8" height="10" rx="2" fill="white" fill-opacity=".8"/>')
         if a["pallet"] != "—":
-            if a.get("tipo_mision") == "suministro":
-                partes.append('<rect x="1" y="-5" width="10" height="10" rx="2" fill="#8aa4b8" stroke="#5f788d" stroke-width="1"/>')
-                partes.append('<text x="6" y="2.5" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="800" fill="white">M</text>')
-            else:
-                partes.append('<rect x="2" y="-4" width="8" height="8" rx="1" fill="#f0c47d" stroke="#bd8540" stroke-width=".8"/>')
+            partes.append('<rect x="2" y="-4" width="8" height="8" rx="1" fill="#f0c47d" stroke="#bd8540" stroke-width=".8"/>')
         partes.append(f'<path d="M0,-11 L30,{label_y+12}" stroke="{color}" stroke-opacity=".6"/><rect x="7" y="{label_y-7}" width="79" height="23" rx="5" fill="white" stroke="{color}" stroke-width="1.2"/><text x="15" y="{label_y+9}" font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="{color}">{html.escape(a["agv"])}</text>')
         partes.append('</g>')
     partes.append('</svg>')

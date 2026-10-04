@@ -9,19 +9,23 @@ import json
 import math
 from pathlib import Path
 
+from app.models.agv import AGV
+from app.models.mision import Mision
+from app.models.pallet import Pallet
 from app.models.solicitud import SolicitudTraslado, PrioridadSolicitud
+from app.services.solicitudes_retiro import crear_solicitud_retiro
 from app.models.bateria import VELOCIDAD_REFERENCIA_MS
 from app.services.gestor_flota import GestorFlota
 from app.services.indicadores_capacidad import calcular_capacidad
 
-VERSION_MODELO = "flujo_encadenado_suministro_produccion_v5_cadencia_linea_660s"
+VERSION_MODELO = "produccion_independiente_retiro_pt_v8_capacidad_clara"
 
-LINEAS = tuple(GestorFlota.NODOS_SUMINISTRO)
+LINEAS = tuple(GestorFlota.NODOS_PRODUCTO_TERMINADO)
 TIEMPO_PRODUCCION_BASE_S = 660.0  # 11 min por pallet; deja margen logístico dentro del turno de 8 h.
 SUPUESTOS = [
-    "Flujo encadenado 1:1: cada pallet terminado requiere primero un suministro de material a su línea y luego un retiro de producto terminado al almacén.",
+    "Las cinco líneas producen de forma independiente; la flota AGV interviene únicamente cuando un pallet de producto terminado queda listo para retiro.",
     "Distribución equilibrada/round-robin entre las cinco líneas por falta de distribución real por línea.",
-    "Cada línea solicita material con la misma cadencia del ciclo productivo; las cinco líneas generan su primera necesidad al inicio del turno y preabastecen el siguiente ciclo.",
+    "Las cinco líneas comienzan a producir al inicio del turno y generan una solicitud de retiro al completar cada pallet.",
     "El tiempo de producción base es 660 s (11 min) por pallet; es un supuesto calibrable del prototipo.",
     "Carga y descarga duran 30 s en el escenario base; velocidad, peso, escala y posición inicial siguen siendo parámetros del prototipo.",
     "Cada trayecto operacional comienza y termina a velocidad cero; no se detiene en cada arista del grafo.",
@@ -58,17 +62,12 @@ def tiempo_desplazamiento(distancia, velocidad, aceleracion, desaceleracion):
 @dataclass(frozen=True)
 class ParametrosSimulacion:
     pallets_terminados: int = 215
-    # Compatibilidad de serialización. En el flujo encadenado siempre es 1:1 con pallets_terminados.
-    movimientos_suministro: int | None = None
     duracion_turno_s: float = 28800.0
     velocidad_maxima_ms: float = VELOCIDAD_REFERENCIA_MS
     aceleracion_ms2: float = 1.0
     desaceleracion_ms2: float = 1.0
     tiempo_carga_s: float = 30.0
     tiempo_descarga_s: float = 30.0
-    # Se conserva para leer corridas antiguas, pero el flujo nuevo no espera producto: la solicitud
-    # de retiro nace únicamente cuando producción termina.
-    espera_disponibilidad_retorno_s: float = 0.0
     # Si es None, usa el ciclo base de 11 min por pallet.
     tiempo_produccion_s: float | None = None
     factor_escala_metros_por_unidad: float = 1.0
@@ -76,13 +75,9 @@ class ParametrosSimulacion:
     peso_pallet_kg: float = 500.0
 
     @property
-    def suministros_requeridos(self):
-        return self.pallets_terminados
-
-    @property
     def movimientos(self):
-        # Un suministro + un retiro de producto terminado por cada pallet.
-        return 2 * self.pallets_terminados
+        # Una única misión logística por cada pallet terminado: línea -> almacén.
+        return self.pallets_terminados
 
     @property
     def tiempo_produccion_efectivo_s(self):
@@ -94,15 +89,10 @@ class ParametrosSimulacion:
     def __post_init__(self):
         if type(self.pallets_terminados) is not int or self.pallets_terminados < 1:
             raise ValueError("Pallets terminados debe ser un entero positivo.")
-        if self.movimientos_suministro is not None and (type(self.movimientos_suministro) is not int or self.movimientos_suministro < 0):
-            raise ValueError("Suministros debe ser un entero no negativo.")
-        if self.movimientos_suministro not in (None, 0, self.pallets_terminados):
-            raise ValueError("En el flujo encadenado debe existir un suministro por cada pallet terminado.")
-        object.__setattr__(self, "movimientos_suministro", self.pallets_terminados)
         for nombre in ("duracion_turno_s", "velocidad_maxima_ms", "aceleracion_ms2",
                        "desaceleracion_ms2", "factor_escala_metros_por_unidad", "peso_pallet_kg"):
             _numero(nombre, getattr(self, nombre))
-        for nombre in ("tiempo_carga_s", "tiempo_descarga_s", "espera_disponibilidad_retorno_s"):
+        for nombre in ("tiempo_carga_s", "tiempo_descarga_s"):
             _numero(nombre, getattr(self, nombre), cero=True)
         if self.tiempo_produccion_s is not None:
             _numero("tiempo_produccion_s", self.tiempo_produccion_s)
@@ -117,22 +107,22 @@ class DemandaMision:
     id_mision: int
     llegada_s: float
     linea: str
-    tipo: str = "suministro"
+    tipo: str = "producto_terminado"
     prioridad: PrioridadSolicitud = PrioridadSolicitud.NORMAL
     id_pallet: str | None = None
     id_ciclo: int | None = None
 
 
 def generar_demanda(parametros):
-    """Suministros por cadencia de línea; el retorno nace al terminar producción."""
+    """Solicitudes de retiro generadas al terminar cada ciclo productivo."""
     cantidad = parametros.pallets_terminados
     ciclo_s = parametros.tiempo_produccion_efectivo_s
     return tuple(
         DemandaMision(
             i + 1,
-            (i // len(LINEAS)) * ciclo_s,
+            ((i // len(LINEAS)) + 1) * ciclo_s,
             LINEAS[i % len(LINEAS)],
-            "suministro",
+            "producto_terminado",
             PrioridadSolicitud.NORMAL,
             f"PALLET_{i+1:03d}",
             i + 1,
@@ -145,31 +135,25 @@ class SimuladorFlota:
     def __init__(self, parametros=None, demanda=None):
         self.parametros = parametros or ParametrosSimulacion()
         self.demanda = tuple(demanda) if demanda is not None else generar_demanda(self.parametros)
-        self.red = GestorFlota(habilitar_flexsim=False)
+        self.red = GestorFlota()
         self._rutas = {}
         p = self.parametros
         if len(self.demanda) != p.pallets_terminados:
-            raise ValueError("La demanda debe contener una necesidad de suministro por cada pallet requerido.")
+            raise ValueError("La demanda debe contener una solicitud de retiro por cada pallet requerido.")
         for i, c in enumerate(self.demanda):
             _numero("llegada", c.llegada_s, cero=True)
-            if (c.id_mision != i + 1 or c.linea not in LINEAS or c.llegada_s >= p.duracion_turno_s
-                    or c.tipo != "suministro" or not isinstance(c.prioridad, PrioridadSolicitud)):
-                raise ValueError("Demanda inválida: el flujo base inicia con suministros dentro del turno.")
+            if (c.id_mision != i + 1 or c.linea not in LINEAS or c.llegada_s > p.duracion_turno_s
+                    or c.tipo != "producto_terminado" or not isinstance(c.prioridad, PrioridadSolicitud)):
+                raise ValueError("Demanda inválida: cada pallet debe generar un retiro de producto terminado dentro del turno.")
         # Validación anticipada: jamás sustituir una ruta inexistente por distancia cero.
         self.trayecto(p.ubicacion_inicial, "ALMACEN")
         for c in self.demanda:
             origen, destino = self.extremos(c)
             self.trayecto(p.ubicacion_inicial, origen)
             self.trayecto(origen, destino)
-        for linea in LINEAS:
-            origen_pt = self.red.NODOS_PRODUCTO_TERMINADO[linea]
-            self.trayecto(p.ubicacion_inicial, origen_pt)
-            self.trayecto(origen_pt, "ControlPoint7")
 
     def extremos(self, mision):
-        if mision.tipo == "producto_terminado":
-            return self.red.NODOS_PRODUCTO_TERMINADO[mision.linea], "ControlPoint7"
-        return "ControlPoint7", self.red.NODOS_SUMINISTRO[mision.linea]
+        return self.red.NODOS_PRODUCTO_TERMINADO[mision.linea], "ControlPoint7"
 
     def trayecto(self, origen, destino):
         clave = (origen, destino)
@@ -190,18 +174,21 @@ class SimuladorFlota:
         if type(cantidad_agv) is not int or cantidad_agv not in (2, 3, 4, 5):
             raise ValueError("Seleccione una flota de 2, 3, 4 o 5 AGV.")
         p = self.parametros
-        vehiculos = {f"AGV_{i:02d}": {"posicion": p.ubicacion_inicial, "mision": None}
-                     for i in range(1, cantidad_agv + 1)}
+        # La flota se representa con objetos AGV. El diccionario solo permite
+        # acceder rápidamente por identificador sin duplicar el estado del vehículo.
+        vehiculos = {
+            f"AGV_{i:02d}": AGV(f"AGV_{i:02d}", 100.0, p.ubicacion_inicial)
+            for i in range(1, cantidad_agv + 1)
+        }
         eventos, pendientes, movimientos, traza = [], [], {}, []
         solicitudes = {}
         trabajos = {}
+        pallets = {}
         producciones = []
         produccion_por_ciclo = {}
-        linea_disponible_s = dict.fromkeys(LINEAS, 0.0)
         reloj = 0.0
         secuencia = 0
         backlog_maximo = 0
-        siguiente_movimiento = p.pallets_terminados + 1
         finalizados = 0
         self.red.ahora = lambda: datetime(2000, 1, 1) + timedelta(seconds=reloj)
 
@@ -216,17 +203,49 @@ class SimuladorFlota:
         def preparar_trabajo(c, programar_llegada=True):
             origen, destino = self.extremos(c)
             id_pallet = c.id_pallet or f"PALLET_{c.id_ciclo or c.id_mision:03d}"
-            solicitudes[c.id_mision] = SolicitudTraslado(
-                str(c.id_mision), id_pallet, c.linea, p.peso_pallet_kg,
-                origen, destino, c.prioridad, id_ciclo=c.id_ciclo,
+            pallet = pallets.get(id_pallet)
+            if pallet is None:
+                pallet = Pallet(
+                    id_pallet=id_pallet,
+                    producto=c.linea,
+                    lote=None,
+                    cantidad_cajas=None,
+                    peso=p.peso_pallet_kg,
+                    altura=None,
+                    ubicacion=origen,
+                )
+                pallets[id_pallet] = pallet
+            solicitudes[c.id_mision] = crear_solicitud_retiro(
+                id_tarea=c.id_mision,
+                pallet=pallet,
+                linea=c.linea,
+                prioridad=c.prioridad,
+                id_ciclo=c.id_ciclo,
             )
             solicitudes[c.id_mision].fecha_creacion = datetime(2000, 1, 1) + timedelta(seconds=c.llegada_s)
             trabajos[c.id_mision] = c
             if programar_llegada:
                 programar(c.llegada_s, "llegada", c.id_mision)
 
+        # La producción existe por sí sola. Cada línea inicia su primer ciclo en t=0
+        # y la solicitud de retiro aparece exactamente cuando termina el pallet.
+        ciclo_s = p.tiempo_produccion_efectivo_s
         for c in self.demanda:
             preparar_trabajo(c)
+            inicio = c.llegada_s - ciclo_s
+            produccion = {
+                "id_ciclo": c.id_ciclo,
+                "id_pallet": c.id_pallet,
+                "linea": c.linea,
+                "inicio_s": inicio,
+                "fin_s": c.llegada_s,
+                "duracion_s": ciclo_s,
+                "movimiento_producto_terminado": c.id_mision,
+            }
+            producciones.append(produccion)
+            produccion_por_ciclo[c.id_ciclo] = produccion
+            programar(inicio, "inicio_produccion", c.id_ciclo)
+            programar(c.llegada_s, "fin_produccion", c.id_ciclo)
 
         bateria = None
         cargadores_no_utilizables = []
@@ -249,14 +268,14 @@ class SimuladorFlota:
 
         def servicio(c, agv):
             origen, destino = self.extremos(c)
-            return (self.trayecto(vehiculos[agv]["posicion"], origen)["tiempo_s"] +
+            return (self.trayecto(vehiculos[agv].ubicacion, origen)["tiempo_s"] +
                     self.trayecto(origen, destino)["tiempo_s"] +
                     p.tiempo_carga_s + p.tiempo_descarga_s)
 
         def iniciar(c, agv):
             numero = c.id_mision
             origen, destino = self.extremos(c)
-            vacio = self.trayecto(vehiculos[agv]["posicion"], origen)
+            vacio = self.trayecto(vehiculos[agv].ubicacion, origen)
             cargado = self.trayecto(origen, destino)
             duracion = vacio["tiempo_s"] + p.tiempo_carga_s + cargado["tiempo_s"] + p.tiempo_descarga_s
             fin = reloj + duracion
@@ -264,62 +283,28 @@ class SimuladorFlota:
                 raise ValueError("Los parámetros producen un tiempo no finito.")
             id_ciclo = c.id_ciclo or c.id_mision
             id_pallet = c.id_pallet or f"PALLET_{id_ciclo:03d}"
-            movimientos[numero] = {
-                "numero": numero, "id_pallet": id_pallet, "id_mision": c.id_mision,
-                "id_ciclo": id_ciclo, "tipo": c.tipo, "linea": c.linea,
-                "agv": agv, "origen": origen, "destino": destino,
-                "llegada_s": c.llegada_s, "inicio_s": reloj, "fin_s": fin,
-                "vacio": vacio, "cargado": cargado, "espera_disponibilidad_s": 0.0,
-                "carga_s": p.tiempo_carga_s, "descarga_s": p.tiempo_descarga_s,
-                "duracion_servicio_s": duracion,
-            }
+            mision = Mision(numero, solicitudes[numero], vehiculos[agv])
+            mision.iniciar_simulacion(
+                numero=numero,
+                tipo=c.tipo,
+                linea=c.linea,
+                id_ciclo=id_ciclo,
+                llegada_s=c.llegada_s,
+                inicio_s=reloj,
+                fin_s=fin,
+                vacio=vacio,
+                cargado=cargado,
+                carga_s=p.tiempo_carga_s,
+                descarga_s=p.tiempo_descarga_s,
+                duracion_servicio_s=duracion,
+            )
             if bateria:
-                movimientos[numero]["bateria_inicio"] = bateria.nivel(agv, reloj)
-                movimientos[numero]["bateria_fin"] = bateria.nivel(agv, fin)
-            vehiculos[agv]["mision"] = c.id_mision
+                mision.bateria_inicio = bateria.nivel(agv, reloj)
+                mision.bateria_fin = bateria.nivel(agv, fin)
+            movimientos[numero] = mision
             traza.append({"tiempo_s": reloj, "evento": "inicio", "movimiento": numero,
                           "tipo": c.tipo, "pallet": id_pallet, "agv": agv})
             programar(fin, "fin", numero)
-
-        def programar_produccion(movimiento_suministro):
-            ciclo = movimiento_suministro["id_ciclo"]
-            linea = movimiento_suministro["linea"]
-            inicio = max(reloj, linea_disponible_s[linea])
-            fin = inicio + p.tiempo_produccion_efectivo_s
-            linea_disponible_s[linea] = fin
-            produccion = {
-                "id_ciclo": ciclo,
-                "id_pallet": movimiento_suministro["id_pallet"],
-                "linea": linea,
-                "inicio_s": inicio,
-                "fin_s": fin,
-                "duracion_s": p.tiempo_produccion_efectivo_s,
-                "movimiento_suministro": movimiento_suministro["numero"],
-                "movimiento_producto_terminado": None,
-            }
-            producciones.append(produccion)
-            produccion_por_ciclo[ciclo] = produccion
-            traza.append({"tiempo_s": reloj, "evento": "produccion_programada", "ciclo": ciclo,
-                          "pallet": produccion["id_pallet"], "linea": linea,
-                          "inicio_produccion_s": inicio, "fin_produccion_s": fin})
-            programar(inicio, "inicio_produccion", ciclo)
-            programar(fin, "fin_produccion", ciclo)
-
-        def crear_retiro_producto(ciclo):
-            nonlocal siguiente_movimiento
-            produccion = produccion_por_ciclo[ciclo]
-            numero = siguiente_movimiento
-            siguiente_movimiento += 1
-            trabajo = DemandaMision(
-                numero, reloj, produccion["linea"], "producto_terminado",
-                PrioridadSolicitud.NORMAL, produccion["id_pallet"], ciclo,
-            )
-            preparar_trabajo(trabajo, programar_llegada=False)
-            produccion["movimiento_producto_terminado"] = numero
-            pendientes.append(numero)
-            traza.append({"tiempo_s": reloj, "evento": "llegada_producto_terminado",
-                          "mision": numero, "ciclo": ciclo, "pallet": produccion["id_pallet"],
-                          "linea": produccion["linea"]})
 
         while eventos:
             if finalizados == p.movimientos:
@@ -342,27 +327,28 @@ class SimuladorFlota:
                     prod = produccion_por_ciclo[identificador]
                     traza.append({"tiempo_s": reloj, "evento": "fin_produccion",
                                   "ciclo": identificador, "pallet": prod["id_pallet"], "linea": prod["linea"]})
-                    crear_retiro_producto(identificador)
                 elif tipo == "fin":
                     finalizados += 1
-                    m = movimientos[identificador]
-                    agv = m["agv"]
-                    vehiculos[agv]["posicion"] = m["destino"]
+                    mision = movimientos[identificador]
+                    agv = mision.id_agv
+                    mision.completar_simulacion(reloj)
                     traza.append({"tiempo_s": reloj, "evento": "fin", "movimiento": identificador,
-                                  "tipo": m["tipo"], "pallet": m["id_pallet"], "agv": agv})
-                    vehiculos[agv]["mision"] = None
-                    if m["tipo"] == "suministro":
-                        programar_produccion(m)
+                                  "tipo": mision.tipo, "pallet": mision.id_pallet, "agv": agv})
 
             if bateria and finalizados < p.movimientos:
                 for agv, v in vehiculos.items():
-                    if v["mision"] is None and bateria.nivel(agv, reloj) <= bateria.modelo.reserva_pct + 1e-8:
+                    if (v.esta_disponible()
+                            and bateria.modelo.necesita_recarga(bateria.nivel(agv, reloj))):
                         bateria.recargar(agv, reloj)
 
             pendientes.sort(key=lambda i: (-self.red.calcular_score_solicitud(solicitudes[i]), i))
             while pendientes:
-                disponibles = [a for a, v in vehiculos.items() if v["mision"] is None]
                 c = trabajos[pendientes[0]]
+                solicitud = solicitudes[c.id_mision]
+                disponibles = [
+                    a for a, v in vehiculos.items()
+                    if v.esta_disponible() and v.puede_transportar(solicitud.peso)
+                ]
                 if bateria:
                     candidatos = []
                     for a in disponibles:
@@ -386,7 +372,7 @@ class SimuladorFlota:
                     break
                 origen = self.extremos(c)[0]
                 agv = min(disponibles, key=lambda a: (
-                    self.trayecto(vehiculos[a]["posicion"], origen)["distancia_m"], a
+                    self.trayecto(vehiculos[a].ubicacion, origen)["distancia_m"], a
                 ))
                 pendientes.pop(0)
                 iniciar(c, agv)
@@ -396,10 +382,11 @@ class SimuladorFlota:
         if pendientes or len(movimientos) != p.movimientos or finalizados != p.movimientos:
             raise RuntimeError("La simulación terminó con demanda sin procesar.")
 
-        lista = sorted(movimientos.values(), key=lambda m: (m["inicio_s"], m["numero"]))
-        for m in lista:
-            m["espera_s"] = m["inicio_s"] - m["llegada_s"]
-            m["ciclo_movimiento_s"] = m["fin_s"] - m["llegada_s"]
+        misiones_ordenadas = sorted(movimientos.values(), key=lambda m: (m.inicio_s, m.numero))
+        for mision in misiones_ordenadas:
+            mision.calcular_metricas_simulacion()
+        # La UI, los KPIs y los JSON conservan exactamente el mismo contrato externo.
+        lista = [mision.a_dict_simulacion() for mision in misiones_ordenadas]
         terminados = [m for m in lista if m["fin_s"] <= p.duracion_turno_s]
         generadas_turno = [m for m in lista if m["llegada_s"] <= p.duracion_turno_s]
         activas_corte = [
@@ -423,14 +410,12 @@ class SimuladorFlota:
             detalle.append({
                 "agv": agv, "movimientos_totales": len(propios),
                 "movimientos_turno": sum(m["fin_s"] <= p.duracion_turno_s for m in propios),
-                "pallets_terminados_totales": sum(m["tipo"] == "producto_terminado" for m in propios),
-                "pallets_terminados_turno": sum(m["tipo"] == "producto_terminado" and m["fin_s"] <= p.duracion_turno_s for m in propios),
-                "suministros_totales": sum(m["tipo"] == "suministro" for m in propios),
-                "suministros_turno": sum(m["tipo"] == "suministro" and m["fin_s"] <= p.duracion_turno_s for m in propios),
+                "pallets_terminados_totales": len(propios),
+                "pallets_terminados_turno": sum(m["fin_s"] <= p.duracion_turno_s for m in propios),
                 "ocupado_turno_s": ocupado, "libre_turno_s": p.duracion_turno_s - ocupado,
                 "utilizacion_pct": 100 * ocupado / p.duracion_turno_s,
                 "distancia_vacia_m": vacia, "distancia_cargada_m": cargada, "distancia_total_m": vacia + cargada,
-                "posicion_final": vehiculos[agv]["posicion"],
+                "posicion_final": vehiculos[agv].ubicacion,
             })
 
         total = max(m["fin_s"] for m in lista)
@@ -461,10 +446,8 @@ class SimuladorFlota:
             "tiempo_produccion_pallet_s": p.tiempo_produccion_efectivo_s,
         }
 
-        pt = [m for m in lista if m["tipo"] == "producto_terminado"]
-        suministros = [m for m in lista if m["tipo"] == "suministro"]
+        pt = lista
         pt_turno = sum(m["fin_s"] <= p.duracion_turno_s for m in pt)
-        suministros_turno = sum(m["fin_s"] <= p.duracion_turno_s for m in suministros)
         fin_pt = max(m["fin_s"] for m in pt)
         kpis.update({
             "pallets_terminados_requeridos": p.pallets_terminados,
@@ -475,9 +458,6 @@ class SimuladorFlota:
             "tiempo_producto_terminado_s": fin_pt,
             "throughput_pt_h": pt_turno / (p.duracion_turno_s / 3600),
             "capacidad_disponible_pct": 100 - kpis["utilizacion_media_pct"],
-            "suministros_requeridos": p.suministros_requeridos,
-            "suministros_turno": suministros_turno,
-            "suministros_pendientes": p.suministros_requeridos - suministros_turno,
             "movimientos_logisticos_totales": p.movimientos,
             "margen_pt_s": max(0, p.duracion_turno_s - fin_pt),
             "exceso_pt_s": max(0, fin_pt - p.duracion_turno_s),
@@ -497,18 +477,9 @@ class SimuladorFlota:
             "grafo_sha256": hashlib.sha256(grafo.read_bytes()).hexdigest(),
             "supuestos": SUPUESTOS + (["Batería lineal temporal: autonomía 10 h, carga completa 3 h, reserva operativa 20%; batería inicial 100%. Una plaza por cargador."] if bateria else []),
             "limitaciones": [v.replace(" ni batería/recarga sin datos validados", "") for v in LIMITACIONES] if bateria else LIMITACIONES,
-            "alcance_kpis": "Pallet completado = producto terminado descargado en almacén. Suministro y retiro se contabilizan como movimientos logísticos separados.",
+            "alcance_kpis": "Pallet completado = producto terminado descargado en almacén. Cada pallet genera una única misión logística de retiro desde la línea hasta el almacén.",
             "kpis": kpis, "por_agv": detalle, "movimientos": lista, "eventos": traza,
         }
-
-
-def comparar_flotas(parametros=None, demanda=None):
-    simulador = SimuladorFlota(parametros, demanda)
-    return [simulador.ejecutar(n) for n in (2, 3, 4, 5)]
-
-
-def minimo_suficiente(resultados):
-    return min((r["numero_agv"] for r in resultados if r["kpis"]["pallets_terminados_pendientes"] == 0), default=None)
 
 
 def exportar_json(resultados):

@@ -9,10 +9,15 @@ def calcular_capacidad(movimientos, eventos, turno_s, cantidad_agv):
     trabajo = math.fsum(m["duracion_servicio_s"] for m in movimientos)
     disponible = turno_s * cantidad_agv
     hay_espera = any(m["inicio_s"] - m["llegada_s"] > tolerancia for m in movimientos)
-    # Criterio explícito para esta corrida, no prueba de estabilidad a largo plazo.
-    estado = ("INSUFICIENTE" if trabajo > disponible + tolerancia else
-              "SATURADA" if hay_espera else "SUFICIENTE")
     pendientes = [m for m in pt if m["fin_s"] > turno_s]
+    # Clasificación de esta corrida:
+    # - INSUFICIENTE: queda al menos un pallet sin almacenar al cierre.
+    # - AJUSTADA: cumple el turno, pero algún pallet tuvo que esperar un AGV.
+    # - SUFICIENTE: cumple el turno sin espera por disponibilidad de AGV.
+    # La carga de trabajo agregada se conserva como KPI informativo, no como
+    # sustituto del resultado temporal real de la simulación.
+    estado = ("INSUFICIENTE" if pendientes else
+              "AJUSTADA" if hay_espera else "SUFICIENTE")
     ultimo = max(pt, key=lambda m: m["fin_s"])
     return {
         "capacidad_logistica": estado,
