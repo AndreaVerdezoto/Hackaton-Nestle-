@@ -408,7 +408,7 @@ def _escenario_2d():
 def mostrar_2d():
     with st.container(key="vista2d"):
         st.html('<style>'+ (COMPONENTES / "estilos_2d.css").read_text(encoding="utf-8") +'</style>')
-        st.html(f'<div class="control-cabecera"><div><div class="eyebrow">INTRALOGÍSTICA · CONTROL DE FLOTA</div><h2>Centro de operaciones AGV</h2><p>Producto terminado · 215 pallets por turno · Simulación 2D</p></div><div class="marca-reservada"><img src="data:image/png;base64,{LOGO_NESTLE}" alt="Nestlé"></div></div>')
+        st.html(f'<div class="control-cabecera"><div><div class="eyebrow">INTRALOGÍSTICA · CONTROL DE FLOTA</div><h2>Centro de operaciones AGV</h2><p>Producto terminado · Meta: 215 pallets entregados · Simulación 2D</p></div><div class="marca-reservada"><img src="data:image/png;base64,{LOGO_NESTLE}" alt="Nestlé"></div></div>')
         escenario = _escenario_2d()
         resultado = escenario["resultado"] if escenario else None
         reloj = st.session_state.setdefault("reloj_2d", {"tiempo_s": 0., "marca": time.monotonic(), "ejecutando": False, "velocidad": 1})

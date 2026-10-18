@@ -8,7 +8,7 @@ from app.models.bateria import CARGADORES, VELOCIDAD_REFERENCIA_MS
 from app.services.escenarios import crear_escenario
 from app.services.simulador_flota import (
     ParametrosSimulacion, SimuladorFlota,
-    exportar_json, SUPUESTOS, LIMITACIONES, VERSION_MODELO,
+    exportar_json, SUPUESTOS, LIMITACIONES, VERSION_MODELO, LINEAS, META_PALLETS_TURNO,
 )
 
 BASE = asdict(ParametrosSimulacion())
@@ -19,17 +19,37 @@ def restablecer():
         st.session_state[f"ana_{nombre}"] = valor
     st.session_state.pop("analisis_resultados", None)
     st.session_state.pop("sensibilidad_resultados", None)
+    st.session_state["ana_minutos_produccion"] = 7.0
+    st.session_state["ana_personalizar_lineas"] = False
+    for linea in LINEAS:
+        st.session_state[f"ana_minutos_{linea}"] = 7.0
 
 
 def _inicializar_parametros():
     for nombre, valor in BASE.items():
         st.session_state.setdefault(f"ana_{nombre}", valor)
+    st.session_state.setdefault("ana_minutos_produccion", 7.0)
+    st.session_state.setdefault("ana_personalizar_lineas", False)
+    for linea in LINEAS:
+        st.session_state.setdefault(f"ana_minutos_{linea}", 7.0)
     # La referencia del prototipo es fija: 1 m/s. Evita conservar 2 m/s de sesiones anteriores.
     st.session_state["ana_velocidad_maxima_ms"] = VELOCIDAD_REFERENCIA_MS
 
 
+def _sincronizar_tiempos_lineas():
+    if st.session_state["ana_personalizar_lineas"]:
+        for linea in LINEAS:
+            st.session_state[f"ana_minutos_{linea}"] = st.session_state["ana_minutos_produccion"]
+
+
 def _valores_parametros():
-    return {k: st.session_state[f"ana_{k}"] for k in BASE}
+    valores = {k: st.session_state[f"ana_{k}"] for k in BASE}
+    valores["tiempo_produccion_s"] = st.session_state["ana_minutos_produccion"] * 60
+    valores["tiempos_produccion_lineas_s"] = (
+        {linea: st.session_state[f"ana_minutos_{linea}"] * 60 for linea in LINEAS}
+        if st.session_state["ana_personalizar_lineas"] else None
+    )
+    return valores
 
 
 def _historial_vigente():
@@ -66,12 +86,11 @@ def mostrar_dimensionamiento():
     st.caption("Configura el escenario y ejecuta la simulación Python que alimenta Resultados, Simulación 2D y Néstor.")
     _inicializar_parametros()
     _mostrar_obsoletos()
-    st.info("Meta de Nestlé: al menos 215 pallets de producto terminado por turno de 8 horas.")
+    st.caption(f"Meta fija: {META_PALLETS_TURNO} pallets entregados al almacén. Las entregas adicionales cuentan como extra.")
 
     cantidad = st.selectbox("Número de AGV a simular", [2, 3, 4, 5], key="flota_elegida")
     columnas = st.columns(3)
     principales = [
-        ("pallets_terminados", "Pallets terminados por turno", 1, "Demanda de producto terminado del escenario."),
         ("duracion_turno_s", "Duración del turno (s)", 1.0, "28800 segundos equivalen a 8 horas."),
         ("velocidad_maxima_ms", "Velocidad máxima (m/s)", 0.01, "Referencia fija del prototipo: 1 m/s."),
         ("tiempo_carga_s", "Carga (s)", 0.0, "Tiempo por pallet."),
@@ -86,6 +105,18 @@ def mostrar_dimensionamiento():
                 help=ayuda,
                 disabled=campo == "velocidad_maxima_ms",
             )
+
+    st.number_input("Producción por pallet · todas las líneas (min)", min_value=0.1, step=0.5,
+                    key="ana_minutos_produccion", help="Valor inicial: 7 minutos. No cambia la meta de 215 pallets.")
+    with st.expander("Avanzado · producción por línea", expanded=False):
+        st.checkbox("Personalizar tiempos de cada línea", key="ana_personalizar_lineas",
+                    on_change=_sincronizar_tiempos_lineas)
+        if st.session_state["ana_personalizar_lineas"]:
+            for linea in LINEAS:
+                st.number_input(f"{linea} (min/pallet)", min_value=0.1, step=0.5,
+                                key=f"ana_minutos_{linea}")
+        else:
+            st.caption("Todas las líneas usan el tiempo general.")
 
     with st.expander("Parámetros avanzados", expanded=False):
         izquierda, derecha = st.columns(2)
@@ -105,7 +136,7 @@ def mostrar_dimensionamiento():
     st.button("Restablecer valores base", on_click=restablecer)
 
     valores = _valores_parametros()
-    st.caption(f"{valores['pallets_terminados']} pallets terminados · {valores['duracion_turno_s']/3600:g} h · "
+    st.caption(f"{META_PALLETS_TURNO} pallets de meta · {valores['duracion_turno_s']/3600:g} h · "
                f"{valores['velocidad_maxima_ms']:g} m/s · carga {valores['tiempo_carga_s']:g} s · "
                f"descarga {valores['tiempo_descarga_s']:g} s · escala {valores['factor_escala_metros_por_unidad']:g}")
 
@@ -126,7 +157,7 @@ def mostrar_dimensionamiento():
             r = escenario["resultado"]
             p = r["parametros"]
             st.success("Simulación completada. Consulta los indicadores en Resultados o visualiza el escenario en Simulación 2D.")
-            st.caption(f"Escenario simulado: {r['numero_agv']} AGV · {p['pallets_terminados']} pallets · {p['duracion_turno_s']/3600:g} h · {p['velocidad_maxima_ms']:g} m/s")
+            st.caption(f"Escenario simulado: {r['numero_agv']} AGV · {p['pallets_terminados']} pallets producidos · meta {META_PALLETS_TURNO} · {p['duracion_turno_s']/3600:g} h")
 
 
 def mostrar_resultados():
@@ -138,7 +169,8 @@ def mostrar_resultados():
         return
     resultado = escenario["resultado"]
     valores = _valores_parametros() if all(f"ana_{k}" in st.session_state for k in BASE) else None
-    if valores and (resultado["parametros"] != valores or resultado["numero_agv"] != st.session_state.get("flota_elegida")):
+    if valores and (any(resultado["parametros"].get(k) != v for k, v in valores.items() if k != "pallets_terminados")
+                   or resultado["numero_agv"] != st.session_state.get("flota_elegida")):
         st.info("Se muestra una corrida guardada. Ejecuta nuevamente desde Dimensionamiento para evaluar parámetros distintos.")
 
     mostrar_resumen_operativo(resultado)
@@ -166,18 +198,23 @@ def _tarjetas(datos, columnas=3):
 def mostrar_resumen_operativo(resultado):
     k, p, n = resultado["kpis"], resultado["parametros"], resultado["numero_agv"]
     st.subheader("Resumen operativo")
-    st.write(
-        f"Con {n} AGV se almacenaron {k['pallets_terminados_turno']} de "
-        f"{p['pallets_terminados']} pallets de producto terminado durante el escenario simulado."
-    )
+    almacenados = k["pallets_terminados_turno"]
+    meta = k.get("meta_pallets_turno", META_PALLETS_TURNO)
+    extras = k.get("pallets_extra_meta", max(0, almacenados - meta))
+    if almacenados >= meta:
+        st.success(f"Meta {'superada' if extras else 'cumplida'}: {almacenados} pallets entregados al almacén "
+                   f"de {meta} requeridos" + (f" · **+{extras} extra**" if extras else ""))
+    else:
+        st.warning(f"Meta pendiente: {almacenados}/{meta} pallets entregados al almacén.")
+    st.progress(min(1.0, almacenados / meta), text=f"{k['cumplimiento_pct']:.1f} % de la meta")
     espera = k.get("espera_agv_media_pt_s", k.get("espera_media_s"))
     _tarjetas([
-        ("Pallets requeridos", p["pallets_terminados"]),
-        ("Pallets almacenados", k["pallets_terminados_turno"]),
-        ("Cumplimiento", _numero(k.get("cumplimiento_pct"), " %")),
-        ("Utilización en misiones", _numero(k.get("utilizacion_media_pct"), " %")),
-        ("Espera retiro PT", _numero(espera, " s")),
+        ("Meta de Nestlé", meta),
+        ("Pallets almacenados", almacenados),
+        ("Pallets extra", extras),
         ("Pallets por almacenar", k.get("pallets_terminados_pendientes", 0)),
+        ("Espera retiro PT", _numero(espera, " s")),
+        ("Utilización en misiones", _numero(k.get("utilizacion_media_pct"), " %")),
     ])
     st.caption("Utilización: tiempo en misiones dentro del turno. Espera retiro PT: promedio de toda la corrida. Cambiar de pestaña no recalcula la simulación.")
 
@@ -295,7 +332,8 @@ def mostrar_comparacion_resultados(historial, etiquetas):
             "Escenario": etiquetas[escenario["id"]],
             "AGV": r["numero_agv"],
             "Pallets almacenados": k["pallets_terminados_turno"],
-            "Cumplimiento (%)": round(k["cumplimiento_pct"], 1),
+            "Meta alcanzada (%)": round(k["cumplimiento_pct"], 1),
+            "Extra sobre 215": k.get("pallets_extra_meta", 0),
             "Pallets por almacenar": k["pallets_terminados_pendientes"],
             "Espera retiro PT (s)": round(k.get("espera_agv_media_pt_s", k["espera_media_s"]), 2),
             "Utilización en misiones (%)": round(k["utilizacion_media_pct"], 1),
@@ -331,7 +369,10 @@ def mostrar_analisis_tecnico(resultado):
         campos_kpi = [
             ("pallets_terminados_turno", "Pallets almacenados dentro del turno"),
             ("pallets_terminados_pendientes", "Pallets por almacenar"),
-            ("cumplimiento_pct", "Cumplimiento de producto terminado (%)"),
+            ("cumplimiento_pct", "Cumplimiento respecto a la meta de 215 (%)"),
+            ("meta_pallets_turno", "Meta de Nestlé (pallets)"),
+            ("pallets_extra_meta", "Pallets extra entregados al almacén"),
+            ("pallets_producidos_turno", "Pallets producidos en el turno"),
             ("tiempo_producto_terminado_s", "Tiempo hasta almacenar el último pallet (s)"),
             ("completados_turno", "Retiros completados"),
             ("solicitudes_generadas_turno", "Solicitudes generadas al cierre"),

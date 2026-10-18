@@ -11,7 +11,7 @@ class CapacidadTests(unittest.TestCase):
         self.assertEqual([r['numero_agv'] for r in resultados], [2, 3, 4, 5])
         for r in resultados:
             self.assertIn(r['kpis']['capacidad_logistica'], ('SUFICIENTE', 'AJUSTADA', 'INSUFICIENTE'))
-            self.assertEqual(r['kpis']['movimientos_logisticos_totales'], 215)
+            self.assertEqual(r['kpis']['movimientos_logisticos_totales'], 340)
             pt = [m for m in r['movimientos'] if m['tipo'] == 'producto_terminado']
             self.assertAlmostEqual(r['kpis']['espera_agv_media_pt_s'],
                                    sum(m['espera_s'] for m in pt) / len(pt))
@@ -41,4 +41,4 @@ class CapacidadTests(unittest.TestCase):
         pt = r['movimientos']
         self.assertTrue(all(m['tipo'] == 'producto_terminado' for m in pt))
         self.assertEqual(r['kpis']['pallets_esperaron_agv'], sum(m['espera_s'] > 1e-9 for m in pt))
-        self.assertEqual(len(pt), 215)
+        self.assertEqual(len(pt), 340)

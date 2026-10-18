@@ -18,15 +18,16 @@ from app.models.bateria import VELOCIDAD_REFERENCIA_MS
 from app.services.gestor_flota import GestorFlota
 from app.services.indicadores_capacidad import calcular_capacidad
 
-VERSION_MODELO = "produccion_independiente_retiro_pt_v8_capacidad_clara"
+VERSION_MODELO = "produccion_7min_meta215_v9"
 
 LINEAS = tuple(GestorFlota.NODOS_PRODUCTO_TERMINADO)
-TIEMPO_PRODUCCION_BASE_S = 660.0  # 11 min por pallet; deja margen logístico dentro del turno de 8 h.
+TIEMPO_PRODUCCION_BASE_S = 420.0  # 7 min por pallet en el escenario base.
+META_PALLETS_TURNO = 215  # Meta logística fija, independiente de la producción.
 SUPUESTOS = [
     "Las cinco líneas producen de forma independiente; la flota AGV interviene únicamente cuando un pallet de producto terminado queda listo para retiro.",
-    "Distribución equilibrada/round-robin entre las cinco líneas por falta de distribución real por línea.",
+    "Por defecto las cinco líneas tienen el mismo ciclo. Los tiempos individuales se pueden configurar sin cambiar el despacho de AGV.",
     "Las cinco líneas comienzan a producir al inicio del turno y generan una solicitud de retiro al completar cada pallet.",
-    "El tiempo de producción base es 660 s (11 min) por pallet; es un supuesto calibrable del prototipo.",
+    "El tiempo de producción base es 420 s (7 min) por pallet; es un supuesto calibrable del prototipo. La meta logística sigue siendo 215 entregas al almacén.",
     "Carga y descarga duran 30 s en el escenario base; velocidad, peso, escala y posición inicial siguen siendo parámetros del prototipo.",
     "Cada trayecto operacional comienza y termina a velocidad cero; no se detiene en cada arista del grafo.",
 ]
@@ -61,41 +62,63 @@ def tiempo_desplazamiento(distancia, velocidad, aceleracion, desaceleracion):
 
 @dataclass(frozen=True)
 class ParametrosSimulacion:
-    pallets_terminados: int = 215
+    # None: producir tantos pallets como permitan los ciclos hasta el cierre.
+    # Un número explícito permite escenarios controlados de prueba.
+    pallets_terminados: int | None = None
     duracion_turno_s: float = 28800.0
     velocidad_maxima_ms: float = VELOCIDAD_REFERENCIA_MS
     aceleracion_ms2: float = 1.0
     desaceleracion_ms2: float = 1.0
     tiempo_carga_s: float = 30.0
     tiempo_descarga_s: float = 30.0
-    # Si es None, usa el ciclo base de 11 min por pallet.
-    tiempo_produccion_s: float | None = None
+    tiempo_produccion_s: float = TIEMPO_PRODUCCION_BASE_S
+    # Sobrescrituras opcionales por línea (en segundos).
+    tiempos_produccion_lineas_s: dict[str, float] | None = None
     factor_escala_metros_por_unidad: float = 1.0
     ubicacion_inicial: str = "ControlPoint7"
     peso_pallet_kg: float = 500.0
 
     @property
     def movimientos(self):
-        # Una única misión logística por cada pallet terminado: línea -> almacén.
-        return self.pallets_terminados
+        # Una sola misión de retiro por cada pallet producido durante el turno.
+        return self.pallets_terminados if self.pallets_terminados is not None else sum(
+            math.floor((self.duracion_turno_s + 1e-9) / self.ciclo_linea_s(linea))
+            for linea in LINEAS
+        )
 
     @property
     def tiempo_produccion_efectivo_s(self):
-        if self.tiempo_produccion_s is not None:
+        return self.tiempo_produccion_s
+
+    def ciclo_linea_s(self, linea):
+        if self.tiempos_produccion_lineas_s is None:
             return self.tiempo_produccion_s
-        pallets_linea_max = math.ceil(self.pallets_terminados / len(LINEAS))
-        return min(TIEMPO_PRODUCCION_BASE_S, self.duracion_turno_s / pallets_linea_max)
+        return self.tiempos_produccion_lineas_s.get(linea, self.tiempo_produccion_s)
 
     def __post_init__(self):
-        if type(self.pallets_terminados) is not int or self.pallets_terminados < 1:
-            raise ValueError("Pallets terminados debe ser un entero positivo.")
+        if self.pallets_terminados is not None and (
+            type(self.pallets_terminados) is not int or self.pallets_terminados < 1
+        ):
+            raise ValueError("Pallets terminados debe ser un entero positivo o None (automático).")
         for nombre in ("duracion_turno_s", "velocidad_maxima_ms", "aceleracion_ms2",
                        "desaceleracion_ms2", "factor_escala_metros_por_unidad", "peso_pallet_kg"):
             _numero(nombre, getattr(self, nombre))
         for nombre in ("tiempo_carga_s", "tiempo_descarga_s"):
             _numero(nombre, getattr(self, nombre), cero=True)
-        if self.tiempo_produccion_s is not None:
-            _numero("tiempo_produccion_s", self.tiempo_produccion_s)
+        _numero("tiempo_produccion_s", self.tiempo_produccion_s)
+        if self.tiempos_produccion_lineas_s is not None:
+            if not isinstance(self.tiempos_produccion_lineas_s, dict):
+                raise ValueError("Tiempos por línea debe ser un diccionario.")
+            for linea, ciclo in self.tiempos_produccion_lineas_s.items():
+                if linea not in LINEAS:
+                    raise ValueError(f"Línea de producción desconocida: {linea}.")
+                _numero(f"tiempo de {linea}", ciclo)
+        # Impide simular millones de eventos por una configuración accidental.
+        if sum(math.floor((self.duracion_turno_s + 1e-9) / self.ciclo_linea_s(linea))
+               for linea in LINEAS) > 20000:
+            raise ValueError("Demasiados ciclos de producción para este escenario (máximo 20 000).")
+        if self.movimientos == 0:
+            raise ValueError("Ninguna línea completa un pallet dentro del turno con estos tiempos.")
         if self.peso_pallet_kg > SolicitudTraslado.PESO_MAXIMO_PALLET:
             raise ValueError("El peso máximo del pallet es 800 kg.")
         if not isinstance(self.ubicacion_inicial, str) or not self.ubicacion_inicial:
@@ -115,19 +138,21 @@ class DemandaMision:
 
 def generar_demanda(parametros):
     """Solicitudes de retiro generadas al terminar cada ciclo productivo."""
-    cantidad = parametros.pallets_terminados
-    ciclo_s = parametros.tiempo_produccion_efectivo_s
+    eventos = sorted(
+        (ciclo * parametros.ciclo_linea_s(linea), orden, linea)
+        for orden, linea in enumerate(LINEAS)
+        for ciclo in range(1, math.floor(
+            (parametros.duracion_turno_s + 1e-9) / parametros.ciclo_linea_s(linea)
+        ) + 1)
+    )
+    if parametros.pallets_terminados is not None:
+        if len(eventos) < parametros.pallets_terminados:
+            raise ValueError("La producción configurada no alcanza esa cantidad de pallets dentro del turno.")
+        eventos = eventos[:parametros.pallets_terminados]
     return tuple(
-        DemandaMision(
-            i + 1,
-            ((i // len(LINEAS)) + 1) * ciclo_s,
-            LINEAS[i % len(LINEAS)],
-            "producto_terminado",
-            PrioridadSolicitud.NORMAL,
-            f"PALLET_{i+1:03d}",
-            i + 1,
-        )
-        for i in range(cantidad)
+        DemandaMision(i, instante, linea, "producto_terminado", PrioridadSolicitud.NORMAL,
+                      f"PALLET_{i:03d}", i)
+        for i, (instante, _, linea) in enumerate(eventos, start=1)
     )
 
 
@@ -138,7 +163,7 @@ class SimuladorFlota:
         self.red = GestorFlota()
         self._rutas = {}
         p = self.parametros
-        if len(self.demanda) != p.pallets_terminados:
+        if len(self.demanda) != p.movimientos:
             raise ValueError("La demanda debe contener una solicitud de retiro por cada pallet requerido.")
         for i, c in enumerate(self.demanda):
             _numero("llegada", c.llegada_s, cero=True)
@@ -229,9 +254,9 @@ class SimuladorFlota:
 
         # La producción existe por sí sola. Cada línea inicia su primer ciclo en t=0
         # y la solicitud de retiro aparece exactamente cuando termina el pallet.
-        ciclo_s = p.tiempo_produccion_efectivo_s
         for c in self.demanda:
             preparar_trabajo(c)
+            ciclo_s = p.ciclo_linea_s(c.linea)
             inicio = c.llegada_s - ciclo_s
             produccion = {
                 "id_ciclo": c.id_ciclo,
@@ -450,11 +475,16 @@ class SimuladorFlota:
         pt_turno = sum(m["fin_s"] <= p.duracion_turno_s for m in pt)
         fin_pt = max(m["fin_s"] for m in pt)
         kpis.update({
-            "pallets_terminados_requeridos": p.pallets_terminados,
+            "pallets_terminados_requeridos": p.movimientos,
+            "meta_pallets_turno": META_PALLETS_TURNO,
+            "pallets_producidos_turno": len(self.demanda),
+            "pallets_extra_meta": max(0, pt_turno - META_PALLETS_TURNO),
+            "faltantes_meta": max(0, META_PALLETS_TURNO - pt_turno),
+            "retiro_produccion_pct": 100 * pt_turno / len(self.demanda),
             "pallets_terminados_turno": pt_turno,
-            "pallets_terminados_pendientes": p.pallets_terminados - pt_turno,
-            "cumplimiento_pct": 100 * pt_turno / p.pallets_terminados,
-            "cumple": pt_turno == p.pallets_terminados,
+            "pallets_terminados_pendientes": p.movimientos - pt_turno,
+            "cumplimiento_pct": 100 * pt_turno / META_PALLETS_TURNO,
+            "cumple": pt_turno >= META_PALLETS_TURNO,
             "tiempo_producto_terminado_s": fin_pt,
             "throughput_pt_h": pt_turno / (p.duracion_turno_s / 3600),
             "capacidad_disponible_pct": 100 - kpis["utilizacion_media_pct"],
@@ -462,9 +492,11 @@ class SimuladorFlota:
             "margen_pt_s": max(0, p.duracion_turno_s - fin_pt),
             "exceso_pt_s": max(0, fin_pt - p.duracion_turno_s),
         })
-        kpis.update(calcular_capacidad(lista, traza, p.duracion_turno_s, cantidad_agv))
+        kpis.update(calcular_capacidad(lista, traza, p.duracion_turno_s, cantidad_agv, META_PALLETS_TURNO))
         grafo = Path(__file__).resolve().parents[2] / "data/red_agv_grafo_actualizado.json"
         parametros_salida = asdict(p)
+        parametros_salida["pallets_terminados"] = p.movimientos  # Compatibilidad con UI y exportación.
+        parametros_salida["meta_pallets_turno"] = META_PALLETS_TURNO
         return {
             **({"modelo_bateria": {"autonomia_s": bateria.modelo.autonomia_s,
                 "carga_completa_s": bateria.modelo.carga_completa_s, "reserva_pct": bateria.modelo.reserva_pct},

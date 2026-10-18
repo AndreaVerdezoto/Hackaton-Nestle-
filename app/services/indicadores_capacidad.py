@@ -2,7 +2,7 @@
 import math
 
 
-def calcular_capacidad(movimientos, eventos, turno_s, cantidad_agv):
+def calcular_capacidad(movimientos, eventos, turno_s, cantidad_agv, meta_pallets=215):
     tolerancia = 1e-9  # Exclusivamente para ruido numérico en la clasificación.
     pt = [m for m in movimientos if m["tipo"] == "producto_terminado"]
     esperas = [m["inicio_s"] - m["llegada_s"] for m in pt]
@@ -11,13 +11,14 @@ def calcular_capacidad(movimientos, eventos, turno_s, cantidad_agv):
     hay_espera = any(m["inicio_s"] - m["llegada_s"] > tolerancia for m in movimientos)
     pendientes = [m for m in pt if m["fin_s"] > turno_s]
     # Clasificación de esta corrida:
-    # - INSUFICIENTE: queda al menos un pallet sin almacenar al cierre.
-    # - AJUSTADA: cumple el turno, pero algún pallet tuvo que esperar un AGV.
-    # - SUFICIENTE: cumple el turno sin espera por disponibilidad de AGV.
+    # - INSUFICIENTE: no se alcanza la meta de 215 entregas al cierre.
+    # - AJUSTADA: se alcanza la meta, pero quedan retiros pendientes o hubo espera.
+    # - SUFICIENTE: se alcanza la meta, se retira todo lo producido y no hubo espera.
     # La carga de trabajo agregada se conserva como KPI informativo, no como
     # sustituto del resultado temporal real de la simulación.
-    estado = ("INSUFICIENTE" if pendientes else
-              "AJUSTADA" if hay_espera else "SUFICIENTE")
+    entregados = sum(m["fin_s"] <= turno_s for m in pt)
+    estado = ("INSUFICIENTE" if entregados < meta_pallets else
+              "AJUSTADA" if pendientes or hay_espera else "SUFICIENTE")
     ultimo = max(pt, key=lambda m: m["fin_s"])
     return {
         "capacidad_logistica": estado,

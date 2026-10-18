@@ -1,24 +1,24 @@
-# Resultados actuales — 215 pallets de producto terminado
+# Resultados de referencia — meta 215 pallets
 
-## Escenario base vigente
+## Escenario vigente: 7 min por pallet y línea
 
-El simulador actual modela únicamente el retiro de producto terminado desde las cinco líneas hacia el almacén. No existen misiones de suministro de materia prima.
+El flujo se limita al retiro de producto terminado. La meta de Nestlé es **215 pallets efectivamente descargados por AGV en almacén durante 8 h**. No equivale a limitar la producción a 215. En el caso base, cinco líneas independientes completan **68 pallets cada una** en ocho horas: **340 pallets producidos y 340 solicitudes de retiro**.
 
-Parámetros base: 215 pallets, 5 líneas (43 pallets por línea), turno de 28 800 s, ciclo productivo de 660 s por pallet y por línea, velocidad máxima de 1 m/s, aceleración/desaceleración de 1 m/s², carga y descarga de 30 s y escala de 1 m/unidad.
+Los demás supuestos siguen iguales: velocidad 1 m/s, aceleración/desaceleración 1 m/s², carga 30 s, descarga 30 s, factor de escala 1 m/unidad y batería activada.
 
-El último ciclo productivo termina en `43 × 660 = 28 380 s`, por lo que quedan 420 s del turno para retirar el último pallet.
+| AGV | Capacidad | Almacenados en 8 h | Meta 215 | Extra entregado | Pendientes | Espera media |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 2 | AJUSTADA | 339/340 | 157,67 % | +124 | 1 | 109,20 s |
+| 3 | AJUSTADA | 340/340 | 158,14 % | +125 | 0 | 43,22 s |
+| 4 | AJUSTADA | 340/340 | 158,14 % | +125 | 0 | 18,94 s |
+| 5 | SUFICIENTE | 340/340 | 158,14 % | +125 | 0 | 0,00 s |
 
-| AGV | Capacidad logística | Almacenados | Cumplimiento | Utilización media | Espera media | Espera máxima | Pallets que esperaron | Cola máxima | Fin último pallet | Margen |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2 | AJUSTADA | 215/215 | 100% | 37.85% | 83.78 s | 202.77 s | 129 | 3 | 28 670.87 s | 129.13 s |
-| 3 | AJUSTADA | 215/215 | 100% | 25.23% | 43.22 s | 108.06 s | 86 | 2 | 28 582.77 s | 217.23 s |
-| 4 | AJUSTADA | 215/215 | 100% | 18.92% | 18.94 s | 94.71 s | 43 | 1 | 28 562.81 s | 237.19 s |
-| 5 | SUFICIENTE | 215/215 | 100% | 15.14% | 0 s | 0 s | 0 | 0 | 28 488.06 s | 311.94 s |
+**Pallet contado:** la misión de retiro debe finalizar y descargarse el pallet en almacén antes del cierre. Pallets producidos, en transporte o en espera de AGV **no se suman** como entregados.
 
-`INSUFICIENTE` significa que al menos un pallet no se almacenó dentro del turno. `AJUSTADA` significa que la corrida cumple el turno pero existió espera por disponibilidad de AGV. `SUFICIENTE` significa que cumple y ninguna solicitud esperó un AGV. Esta clasificación describe la corrida simulada; no es una garantía industrial a largo plazo.
+**Clasificación de capacidad:** INSUFICIENTE si se entregan menos de 215, AJUSTADA si se logra la meta pero hubo espera o quedan pallets por almacenar, y SUFICIENTE si se logra la meta retirando todo lo producido sin esperas. Esta clasificación corresponde al escenario simulado; no significa que el sistema sea seguro para operar en fábrica sin validar congestión, microparadas y demás límites reales.
 
-## Coherencia matemática verificada
+Los tiempos generales o individuales por línea pueden configurarse desde **Dimensionamiento**, y el número de solicitudes se recalcula sin afectar la meta fija.
 
-Para 2, 3, 4 y 5 AGV, con y sin batería habilitada, se verificó que cada ruta de Dijkstra suma sus aristas, los tiempos de trayecto coinciden con la cinemática triangular/trapezoidal, `duración misión = vacío + carga + cargado + descarga`, `fin = inicio + duración`, `espera = inicio - llegada`, no existen misiones solapadas por AGV, `distancia total = vacía + cargada` y los KPIs de completados, pendientes y cumplimiento coinciden con las 215 misiones.
+## Escenario histórico: 11 min
 
-Con los parámetros base actuales, la batería no modifica estos resultados porque las 215 misiones terminan antes del umbral temporal de reserva.
+La simulación anterior con 660 s/pallet y 5 líneas generaba 215 pallets (43 por línea), por lo tanto 215 misiones. Su comportamiento operacional sigue disponible mediante `tiempo_produccion_s=660`; ya **no es el valor predeterminado**.

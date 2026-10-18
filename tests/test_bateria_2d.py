@@ -49,7 +49,7 @@ class SimulacionBateriaTests(unittest.TestCase):
 
     def test_misiones_reserva_cargadores_y_no_cambio_peso(self):
         r = self.r
-        self.assertEqual(len(r['movimientos']), 215)
+        self.assertEqual(len(r['movimientos']), 340)
         self.assertTrue(all(m['bateria_fin'] >= 20-1e-8 for m in r['movimientos']))
         self.assertEqual(r['cargadores_no_utilizables'], [])
         self.assertEqual(set(r['recargas']), {f'AGV_{i:02d}' for i in range(1, 4)})

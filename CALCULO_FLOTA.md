@@ -6,17 +6,11 @@ El flujo actual es deliberadamente simple:
 
 `producción → pallet terminado → solicitud de retiro → AGV → almacén`
 
-Cada pallet terminado genera **una sola misión logística de retiro** desde el final de su línea hasta `ControlPoint7` (almacén). Por tanto, en el escenario base:
+Cada pallet producido dentro del turno genera **una misión logística de retiro** desde el final de su línea hasta `ControlPoint7` (almacén). La **meta logística es fija: 215 pallets entregados**. La producción es independiente de esta meta: si se producen más, se atienden todas las solicitudes de retiro.
 
-- **215 pallets terminados**.
-- **215 solicitudes de retiro**.
-- **215 misiones logísticas**.
+Con cinco líneas y un tiempo base de **420 s (7 min) por pallet**, en 8 horas cada línea completa 68 pallets, para un total de **340 pallets producidos y 340 solicitudes de retiro**. Estos son supuestos del prototipo, no cifras medidas de producción real. Los cinco ciclos pueden personalizarse individualmente en Dimensionamiento.
 
-La demanda se distribuye de forma equilibrada entre cinco líneas: `COOKIE_1`, `COOKIE_2`, `COOKIE_3`, `CHOCOLATE` y `WAFER`. Con 215 pallets corresponden **43 pallets por línea**.
-
-Las cinco líneas empiezan a producir desde el inicio del turno. El tiempo de ciclo base es **660 s (11 min) por pallet**, valor de prototipo que puede recalibrarse con datos reales de planta. La solicitud de retiro nace exactamente cuando termina el pallet.
-
-Un pallet se considera cumplido únicamente cuando el AGV lo descarga en el almacén.
+Las cinco líneas comienzan a producir al iniciar el turno. La solicitud aparece cuando se completa cada pallet. **Un pallet cuenta para la meta solo cuando el AGV lo descargó en el almacén dentro del turno.** Por ejemplo, si se almacenan 300 pallets, el cumplimiento es 300/215 = 139,5 % y hay **85 pallets extra**; los pallets aún esperando retiro no suman a la meta.
 
 ### 2. Prioridad, asignación y rutas
 
@@ -90,8 +84,10 @@ El corte oficial es **8 horas = 28 800 s**.
 Los indicadores principales se interpretan así:
 
 - **Pallets almacenados:** pallets descargados en almacén antes o exactamente en el corte.
-- **Pallets por almacenar:** requeridos menos almacenados.
-- **Cumplimiento:** `100 × pallets almacenados / pallets requeridos`.
+- **Pallets por almacenar:** pallets producidos menos pallets almacenados al cierre.
+- **Cumplimiento de meta:** `100 × pallets almacenados / 215` (puede exceder 100 %).
+- **Pallets extra:** `max(0, pallets almacenados - 215)`.
+- **Cobertura de producción:** `100 × pallets almacenados / pallets producidos`.
 - **Solicitudes generadas:** pallets cuya producción ya terminó y ya solicitaron retiro.
 - **Solicitudes pendientes:** solicitudes generadas que todavía no iniciaron servicio.
 - **Misiones activas:** retiros iniciados pero no terminados al corte.
@@ -101,7 +97,7 @@ Los indicadores principales se interpretan así:
 - **Distancia vacía:** recorrido hasta el punto de recogida sin pallet.
 - **Distancia cargada:** recorrido desde la línea hasta el almacén transportando el pallet.
 
-Con 215 pallets, el plan logístico actual contiene **215 retiros**, no 430 movimientos.
+Con el escenario base de 7 min, el plan logístico contiene **340 retiros** (uno por cada pallet producido); 215 es exclusivamente la meta mínima de entrega.
 
 Algunas métricas se calculan sobre toda la demanda hasta que termina, incluso si una parte supera el corte de 8 horas. El cumplimiento del turno, en cambio, solo cuenta los pallets almacenados dentro de las 8 horas.
 

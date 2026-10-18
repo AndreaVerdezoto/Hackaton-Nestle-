@@ -39,8 +39,12 @@ La interfaz tiene cuatro secciones: **Dimensionamiento**, **Resultados**, **Simu
 ## Documentos vigentes
 
 - `CALCULO_FLOTA.md`: fórmulas, supuestos y alcance del modelo.
-- `RESULTADOS_215_PT.md`: resultados del escenario base de 215 pallets.
+- `RESULTADOS_215_PT.md`: resultados actuales con meta fija de 215 y producción base de 340 pallets.
 - `SIMULACION_2D.md`: funcionamiento de la visualización y batería.
 - `RENTABILIDAD_AGV.md`: plantilla de investigación económica futura; no forma parte del programa.
 
 Los informes históricos de arquitecturas anteriores fueron retirados para evitar mezclar el flujo actual con el antiguo suministro de materia prima o con la integración TCP de FlexSim.
+
+## Producción configurable y meta logística
+
+La meta fija es **215 pallets entregados al almacén** dentro de un turno de 8 horas. El simulador calcula cuántos pallets se producen por línea según el tiempo de ciclo (7 minutos por defecto, personalizable de manera general o individual). Con cinco líneas de 7 minutos el escenario genera 340 solicitudes de retiro. Solo se contabilizan los pallets que los AGV descargaron en almacén; los pallets por encima de 215 son extras y las solicitudes pendientes no cuentan como entregadas.

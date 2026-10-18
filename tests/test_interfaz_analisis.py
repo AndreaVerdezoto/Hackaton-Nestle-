@@ -17,6 +17,29 @@ class InterfazTests(unittest.TestCase):
     def boton(self, at, etiqueta):
         return next(b for b in at.button if b.label == etiqueta)
 
+    def test_configuracion_general_siete_minutos_y_meta_distinta_de_produccion(self):
+        at = self.app().run()
+        self.assertFalse(at.exception)
+        self.assertTrue(any(x.label == "Producción por pallet · todas las líneas (min)"
+                            and x.value == 7.0 for x in at.number_input))
+        self.boton(at, "Simular escenario").click().run()
+        self.assertFalse(at.exception)
+        r = at.session_state["escenarios_simulados"][-1]["resultado"]
+        self.assertEqual(r["kpis"]["meta_pallets_turno"], 215)
+        self.assertEqual(r["kpis"]["pallets_producidos_turno"], 340)
+        self.assertGreater(r["kpis"]["cumplimiento_pct"], 100)
+
+    def test_configuracion_avanzada_por_linea(self):
+        at = self.app().run()
+        next(x for x in at.checkbox if x.label == "Personalizar tiempos de cada línea").set_value(True).run()
+        self.assertFalse(at.exception)
+        next(x for x in at.number_input if x.label == "WAFER (min/pallet)").set_value(11.0).run()
+        self.boton(at, "Simular escenario").click().run()
+        self.assertFalse(at.exception)
+        r = at.session_state["escenarios_simulados"][-1]["resultado"]
+        self.assertEqual(r["parametros"]["tiempos_produccion_lineas_s"]["WAFER"], 660)
+        self.assertEqual(r["kpis"]["pallets_producidos_turno"], 315)
+
     def test_dimensionamiento_crea_escenario_sin_cliente_tcp(self):
         at = self.app().run()
         self.assertFalse(at.exception)
