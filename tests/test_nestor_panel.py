@@ -77,13 +77,46 @@ mostrar_nestor_flotante({"resultado": "simulado"}, escenario_id="escenario_1")
         self.assertTrue(any(b.label == "Néstor" for b in at.button))
         self.assertNotIn("st.image", panel._mostrar_burbuja.__code__.co_names)
 
+    def test_historial_desplazable_esta_separado_y_encima_del_banco(self):
+        at = self.app('''
+from app.ui.nestor_panel import mostrar_nestor_flotante
+mostrar_nestor_flotante({"resultado": "simulado"}, escenario_id="escenario_1")
+''')
+        at = self.abrir_nestor(at)
+        panel = next(b for b in at.get("flex_container") if b.proto.id.endswith("-nestor_chat_panel"))
+        encabezado, conversacion, banco, texto_libre = panel.children.values()
+        self.assertTrue(encabezado.proto.id.endswith("-nestor_header"))
+        self.assertTrue(conversacion.proto.id.endswith("-nestor_conversation"))
+        self.assertTrue(banco.proto.id.endswith("-nestor_question_bank"))
+        self.assertTrue(any(b.proto.id.endswith("-nestor_history_scroll")
+                            for b in conversacion.get("flex_container")))
+        self.assertEqual(len(conversacion.selectbox), 0)
+        self.assertEqual([s.key for s in banco.selectbox], ["nestor_categoria", "nestor_pregunta_banco"])
+        self.assertEqual(texto_libre.type, "expander")
+        self.assertFalse(texto_libre.proto.expanded)
+
+    def test_estilos_del_panel_permanecen_en_la_vista_principal(self):
+        at = self.app('''
+import streamlit as st
+@st.fragment(run_every=0.2)
+def vista_2d():
+    st.html("<style>.vista_2d {color: black}</style>")
+vista_2d()
+from app.ui.nestor_panel import mostrar_nestor_flotante
+mostrar_nestor_flotante({"resultado": "simulado"}, escenario_id="escenario_1")
+''')
+        at = self.abrir_nestor(at)
+        estilos = [e for e in at.main.get("html") if "nestor_panel_styles" in e.proto.body]
+        self.assertEqual(len(estilos), 1)
+        self.assertIn("st-key-nestor_chat_panel", estilos[0].proto.body)
+
     def test_nestor_recibe_preguntas_y_muestra_respuesta_breve(self):
         at = self.app("""
 import streamlit as st
 from app.ui import nestor_panel as panel
 
 class FakeNestor:
-    def __init__(self, resultado):
+    def __init__(self, resultado, *, tiempo_s=0, umbral_alertas_s=120):
         self.resultado = resultado
     def responder(self, pregunta):
         st.session_state["ultima_pregunta_nestor"] = pregunta
@@ -112,7 +145,7 @@ panel.mostrar_nestor_flotante({"resultado": "simulado"}, escenario_id="escenario
 from app.ui import nestor_panel as panel
 
 class FakeNestor:
-    def __init__(self, resultado):
+    def __init__(self, resultado, *, tiempo_s=0, umbral_alertas_s=120):
         pass
     def responder(self, pregunta):
         return {
@@ -140,7 +173,7 @@ panel.mostrar_nestor_flotante({"resultado": "simulado"}, escenario_id="escenario
 from app.ui import nestor_panel as panel
 
 class FakeNestor:
-    def __init__(self, resultado):
+    def __init__(self, resultado, *, tiempo_s=0, umbral_alertas_s=120):
         pass
     def responder(self, pregunta):
         return {
@@ -176,7 +209,7 @@ panel.mostrar_nestor_flotante({"resultado": "simulado"}, escenario_id="escenario
 from app.ui import nestor_panel as panel
 
 class FakeNestor:
-    def __init__(self, resultado):
+    def __init__(self, resultado, *, tiempo_s=0, umbral_alertas_s=120):
         pass
     def responder(self, pregunta):
         return {

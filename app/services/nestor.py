@@ -2,25 +2,197 @@
 from __future__ import annotations
 
 import unicodedata
+import math
 
 from app.services.analizador_operativo import AnalizadorOperativo
+from app.services.preguntas_nestor import ALTERNATIVAS, obtener_pregunta
+from app.services.alertas_linea import UMBRAL_DEMO_S, consultar_alertas
+
+
+def formatear_duracion(segundos):
+    """Mantiene décimas en tiempos cortos y expresa duraciones largas en h/min/s."""
+    if segundos is None or not math.isfinite(segundos):
+        return "dato no disponible"
+    segundos = round(max(0, segundos), 1)
+    if segundos < 60:
+        return f"{segundos:.1f} s"
+    horas, resto = divmod(segundos, 3600)
+    minutos, resto = divmod(resto, 60)
+    partes = []
+    if horas:
+        partes.append(f"{int(horas)} h")
+    if minutos:
+        partes.append(f"{int(minutos)} min")
+    if round(resto, 1):
+        partes.append(f"{resto:.1f}".rstrip("0").rstrip(".") + " s")
+    return " ".join(partes)
 
 
 class Nestor:
-    def __init__(self, resultado=None, analizador=None):
-        if analizador is None:
-            if resultado is None:
-                raise ValueError("Indique un resultado de SimuladorFlota o un AnalizadorOperativo.")
-            analizador = AnalizadorOperativo(resultado)
-        self.analizador = analizador
+    """Usa el reloj recibido (inicio por defecto) y admite preguntas finales explícitas."""
+
+    def __init__(self, resultado=None, analizador=None, *, tiempo_s=0, umbral_alertas_s=UMBRAL_DEMO_S):
+        if analizador is None and resultado is None:
+            raise ValueError("Indique un resultado de SimuladorFlota o un AnalizadorOperativo.")
+        self._analizador = analizador
+        self.resultado = resultado if resultado is not None else getattr(analizador, "resultado", None)
+        self.tiempo_s = tiempo_s
+        self.umbral_alertas_s = umbral_alertas_s
+
+    @property
+    def analizador(self):
+        # Las demoras solo necesitan movimientos; una exportación parcial no requiere mapa/rutas.
+        if self._analizador is None:
+            self._analizador = AnalizadorOperativo(self.resultado, tiempo_s=self.tiempo_s)
+        return self._analizador
 
     def responder(self, pregunta: str) -> dict:
-        intencion = self._detectar_intencion(pregunta)
+        return self._responder(pregunta, self._detectar_intencion(pregunta),
+                               "final" if self._es_consulta_final(pregunta) else None)
+
+    def responder_sugerida(self, pregunta_id: str) -> dict:
+        pregunta = obtener_pregunta(pregunta_id)
+        # El texto del botón es presentación; ninguna regla de texto decide esta consulta.
+        respuesta = self._responder("", pregunta.intencion, pregunta.alcance)
+        respuesta["pregunta_id"] = pregunta.id
+        return respuesta
+
+    def _responder(self, pregunta, intencion, alcance):
+        if intencion == "DEMORAS_LINEA":
+            return self._respuesta_demoras(alcance)
+        estado = getattr(self.analizador, "estado", None)
+        if alcance == "actual" and estado is None and self.resultado is not None and self.tiempo_s is not None:
+            # Permite usar el catálogo con un analizador final inyectado sin filtrar sus KPI.
+            consulta = Nestor(self.resultado, tiempo_s=self.tiempo_s)
+            return consulta._responder(pregunta, intencion, alcance)
+        if alcance == "actual" and estado is None:
+            respuesta = self._respuesta(intencion, "El estado actual del reloj 2D no está disponible.",
+                                       {}, [], ["No se dispone de una consulta temporal para este resultado."], [])
+            respuesta.update(alcance="actual", tiempo_s=None)
+            return respuesta
+        if alcance == "final" and self.resultado is not None:
+            analizador = AnalizadorOperativo(self.resultado, getattr(self.analizador, "umbrales", None))
+            respuesta = Nestor(analizador=analizador)._responder_final(pregunta, intencion)
+            estado = None
+        elif estado is not None:
+            respuesta = self._responder_actual(pregunta, intencion)
+        else:
+            respuesta = self._responder_final(pregunta, intencion)
+        respuesta["alcance"] = "actual" if estado is not None else "final"
+        respuesta["tiempo_s"] = estado["tiempo_s"] if estado is not None else None
+        etiqueta = (
+            f"Estado actual · reloj 2D: {formatear_duracion(estado['tiempo_s'])}. " if estado is not None
+            else "Resultado final · análisis de la corrida completa. "
+        )
+        respuesta["respuesta"] = etiqueta + respuesta["respuesta"]
+        return respuesta
+
+    def _respuesta_demoras(self, alcance):
+        consulta = consultar_alertas(self.resultado, self.tiempo_s, self.umbral_alertas_s,
+                                    estado=getattr(self._analizador, "estado", None))
+        grupos = consulta["por_linea"]
+        if grupos:
+            texto = "Presentan demoras de retiro sin asignación: " + "; ".join(
+                f"{g['nombre']}: {g['cantidad']} {'solicitud' if g['cantidad'] == 1 else 'solicitudes'} "
+                f"sin asignación, espera máxima {self._seg(g['espera_maxima_s'])}"
+                for g in grupos
+            ) + "."
+        elif consulta["limitaciones"]:
+            texto = "No se detectan demoras entre los registros evaluables; faltan datos para evaluar toda la operación."
+        else:
+            texto = "No hay solicitudes sin asignación que superen el umbral configurado en este instante."
+        texto += f" El umbral es {self._seg(self.umbral_alertas_s)}, un parámetro de demostración no validado por Nestlé."
+        if alcance == "final":
+            texto += " Esta consulta por línea corresponde al reloj 2D actual."
+        t = consulta["tiempo_s"]
+        respuesta = self._respuesta(
+            "DEMORAS_LINEA", f"Estado actual · reloj 2D: {self._seg(t)}. " + texto,
+            {"umbral_s": self.umbral_alertas_s, "solicitudes_retrasadas": len(consulta["activas"]),
+             "por_linea": grupos}, [], consulta["limitaciones"], [],
+        )
+        respuesta.update(alcance="actual", tiempo_s=t)
+        if grupos:
+            respuesta["acciones_revision"] = ["Revisar las solicitudes sin asignar de estas líneas y el estado actual de los AGV."]
+        return respuesta
+
+    def _responder_actual(self, pregunta, intencion):
+        metricas = self.analizador.obtener_metricas()
+        problemas = self._problemas_activos(self.analizador.detectar_problemas())
+        no_disponibles = self.analizador.metricas_no_disponibles()
+        if intencion == "ALERTAS":
+            return self._respuesta_alertas(metricas, problemas, no_disponibles, actual=True)
+        if intencion == "ESTADO_GENERAL" and self._es_consulta_alerta(self._normalizar(pregunta)):
+            respuesta = self._respuesta_alertas(metricas, problemas, no_disponibles, actual=True)
+            respuesta["tipo"] = intencion
+            return respuesta
+        claves_por_intencion = {
+            "ESTADO_GENERAL": ("pallets_completados", "misiones_completadas", "misiones_activas",
+                               "solicitudes_pendientes_backlog", "utilizacion_flota_pct"),
+            "DIAGNOSTICO": ("solicitudes_pendientes_backlog", "tiempo_promedio_espera_s",
+                            "tiempo_promedio_ciclo_s", "utilizacion_flota_pct"),
+            "BATERIA": ("bateria_promedio_pct", "bateria_minima_pct", "cantidad_recargas"),
+            "UTILIZACION": ("utilizacion_flota_pct", "utilizacion_por_agv_pct"),
+            "AGV_MAS_USADO": ("utilizacion_flota_pct", "utilizacion_por_agv_pct"),
+            "DISTANCIAS": ("distancia_total_m", "distancia_cargada_m", "distancia_vacia_m",
+                           "porcentaje_desplazamiento_vacio"),
+        }
+        if intencion not in claves_por_intencion:
+            respuesta = self._responder_final(pregunta, intencion)
+            respuesta["metricas_utilizadas"] = {}
+            return respuesta
+        claves = claves_por_intencion[intencion]
+        if intencion == "DIAGNOSTICO" and "maxim" in self._normalizar(pregunta):
+            claves += ("backlog_maximo",)
+        usadas = self._tomar(metricas, claves)
+        limitaciones = [no_disponibles[c] for c in claves if c in no_disponibles]
+        codigos = {
+            "DIAGNOSTICO": {"BACKLOG_ELEVADO", "ESPERA_ELEVADA", "UTILIZACION_ALTA"},
+            "BATERIA": {"BATERIA_BAJA"},
+            "UTILIZACION": {"UTILIZACION_ALTA"},
+            "AGV_MAS_USADO": {"UTILIZACION_ALTA"},
+            "DISTANCIAS": {"DESPLAZAMIENTO_VACIO_ALTO"},
+        }
+        relacionados = (problemas if intencion == "ESTADO_GENERAL"
+                        else self._filtrar_problemas(problemas, codigos[intencion]))
+        if intencion == "ESTADO_GENERAL":
+            texto = (
+                f"Hasta ahora se han entregado {self._pallets(metricas['pallets_completados'])} de producto terminado "
+                f"y se han completado {self._misiones(metricas['misiones_completadas'])} en total. "
+                f"Hay {self._activas(metricas['misiones_activas'])} y "
+                f"{self._solicitudes(metricas['solicitudes_pendientes_backlog'])}; "
+                f"la utilización acumulada en misiones es {self._pct(metricas['utilizacion_flota_pct'])}."
+            )
+        elif intencion == "DIAGNOSTICO":
+            texto = (
+                f"En este instante hay {self._solicitudes(metricas['solicitudes_pendientes_backlog'])}. "
+                f"La espera media de las misiones ya iniciadas es {self._seg(metricas['tiempo_promedio_espera_s'])} "
+                f"y el ciclo medio de las ya completadas es {self._seg(metricas['tiempo_promedio_ciclo_s'])}; "
+                f"la utilización acumulada es {self._pct(metricas['utilizacion_flota_pct'])}. "
+                "Estos datos no permiten atribuir la situación a una única causa."
+            )
+        elif intencion == "BATERIA":
+            texto = self._texto_bateria(usadas, actual=True)
+        elif intencion in ("UTILIZACION", "AGV_MAS_USADO"):
+            texto = f"La utilización acumulada en misiones hasta este instante es {self._pct(metricas['utilizacion_flota_pct'])}."
+            texto += " " + self._texto_agv_actual(metricas["utilizacion_por_agv_pct"])
+        else:
+            texto = (
+                f"Hasta este instante los AGV han recorrido {self._metros(metricas['distancia_total_m'])}: "
+                f"{self._metros(metricas['distancia_cargada_m'])} con carga y "
+                f"{self._metros(metricas['distancia_vacia_m'])} sin carga. "
+                f"La proporción sin carga es {self._pct(metricas['porcentaje_desplazamiento_vacio'])}."
+            )
+        return self._respuesta(intencion, texto, usadas, relacionados, limitaciones,
+                               [] if intencion in ("UTILIZACION", "AGV_MAS_USADO") else relacionados)
+
+    def _responder_final(self, pregunta: str, intencion) -> dict:
         pregunta_normalizada = self._normalizar(pregunta)
         metricas = self.analizador.obtener_metricas()
         problemas = self.analizador.detectar_problemas()
         no_disponibles = self.analizador.metricas_no_disponibles()
         activos = self._problemas_activos(problemas)
+        if intencion == "ALERTAS":
+            return self._respuesta_alertas(metricas, activos, no_disponibles, actual=False)
 
         if intencion == "ESTADO_GENERAL":
             usadas = self._tomar(metricas, (
@@ -33,7 +205,7 @@ class Nestor:
                 texto = self._texto_estado_con_problemas(usadas, relacionados, pregunta_normalizada)
             else:
                 texto = (
-                    "La flota completó {misiones} y alcanzó una utilización promedio de {utilizacion}. "
+                    "La flota completó {misiones} al corte del turno y alcanzó una utilización promedio de {utilizacion}. "
                     "La operación cerró con {pendientes}, sin alertas operativas relevantes."
                 ).format(
                     misiones=self._misiones(usadas.get("misiones_completadas")),
@@ -63,7 +235,7 @@ class Nestor:
             else:
                 texto = (
                     "La flota terminó el escenario con una utilización de {utilizacion} y {espera} de espera media. "
-                    "Esto puede haber contribuido a que quedara {pendientes}, aunque los datos no permiten atribuirlo a una única causa."
+                    "Al cierre había {pendientes}; los datos no permiten atribuirlo a una única causa."
                 ).format(
                     pendientes=self._solicitudes(cantidad_pendiente),
                     espera=self._seg(usadas.get("tiempo_promedio_espera_s")),
@@ -77,31 +249,26 @@ class Nestor:
             relacionados = self._filtrar_problemas(activos, {"BATERIA_BAJA"})
             limitaciones = self._limitaciones(no_disponibles, claves)
             bateria_incompleta = any(usadas.get(clave) is None for clave in claves)
-            if limitaciones or bateria_incompleta:
+            if all(usadas.get(clave) is None for clave in claves):
                 limitaciones = ["No hay suficiente información para determinarlo."]
                 texto = "Esta corrida no registró datos de batería ni recargas, así que no puedo determinarlo para este escenario."
             else:
-                texto = (
-                    "La batería promedio fue de {promedio}, con un mínimo de {minima}. "
-                    "Se registraron {recargas} durante el escenario."
-                ).format(
-                    promedio=self._pct(usadas.get("bateria_promedio_pct")),
-                    minima=self._pct(usadas.get("bateria_minima_pct")),
-                    recargas=self._recargas(usadas.get("cantidad_recargas")),
-                )
+                texto = self._texto_bateria(usadas, actual=False)
+                limitaciones = self._limitaciones(
+                    {c: "" for c in claves if usadas.get(c) is None}, claves)
                 if relacionados:
                     texto += " Se detectó una condición de batería baja que conviene revisar."
-                else:
-                    texto += " No se detectó riesgo operativo de batería."
+                elif not bateria_incompleta:
+                    texto += " Los niveles registrados no cruzan el umbral de batería baja."
             return self._respuesta(intencion, texto, usadas, relacionados, limitaciones, relacionados)
 
-        if intencion == "UTILIZACION":
+        if intencion in ("UTILIZACION", "AGV_MAS_USADO"):
             claves = ("utilizacion_flota_pct", "utilizacion_por_agv_pct")
             usadas = self._tomar(metricas, claves)
             relacionados = self._filtrar_problemas(activos, {"UTILIZACION_ALTA"})
             limitaciones = self._limitaciones(no_disponibles, claves)
             mas_usado = self._agv_mas_usado(usadas.get("utilizacion_por_agv_pct"))
-            if mas_usado and self._es_consulta_agv_mas_usado(pregunta_normalizada):
+            if mas_usado and (intencion == "AGV_MAS_USADO" or self._es_consulta_agv_mas_usado(pregunta_normalizada)):
                 texto = "{agv} tuvo la mayor utilización, con {valor}. El promedio de la flota fue de {utilizacion}.".format(
                     agv=mas_usado[0],
                     valor=self._pct(mas_usado[1]),
@@ -128,7 +295,7 @@ class Nestor:
             relacionados = self._filtrar_problemas(activos, {"DESPLAZAMIENTO_VACIO_ALTO"})
             limitaciones = self._limitaciones(no_disponibles, claves)
             texto = (
-                "Sí. Los AGVs recorrieron {total} en total y {vacia} fueron sin carga. "
+                "Los AGV recorrieron {total} en total y {vacia} fueron sin carga. "
                 "Esto representa un {pct} del recorrido total."
             ).format(
                 total=self._metros(usadas.get("distancia_total_m")),
@@ -141,17 +308,70 @@ class Nestor:
             "tipo": "NO_RECONOCIDA",
             "respuesta": (
                 "Néstor analiza el estado operativo y las desviaciones detectadas. "
-                "Puedes consultarme sobre estado de la operación, alertas, tiempos de espera, "
-                "utilización, batería o recorridos."
+                "No identifiqué tu consulta; elige una pregunta del banco sobre estado de la operación, "
+                "utilización, batería o esperas."
             ),
             "metricas_utilizadas": {},
             "problemas_relacionados": [],
             "limitaciones": ["Intención no reconocida por reglas locales; no se usó IA."],
             "acciones_revision": [],
+            "preguntas_alternativas": list(ALTERNATIVAS),
         }
+
+    def _texto_bateria(self, metricas, *, actual):
+        if all(v is None for v in metricas.values()):
+            return "Los datos de batería y recargas no están disponibles en el instante consultado."
+        partes = []
+        promedio, minima = metricas.get("bateria_promedio_pct"), metricas.get("bateria_minima_pct")
+        if promedio is not None:
+            momento = "actual" if actual else "al último movimiento registrado de cada AGV"
+            partes.append(f"La batería promedio {momento} es {self._pct(promedio)}")
+        if minima is not None:
+            partes.append(f"el nivel más bajo entre los AGV es {self._pct(minima)}")
+        texto = "; ".join(partes)
+        if texto:
+            texto = texto[0].upper() + texto[1:] + ". "
+        recargas = metricas.get("cantidad_recargas")
+        if recargas is not None:
+            texto += (f"Hasta ahora se han iniciado {self._recargas(recargas)}." if actual
+                      else f"Se registraron {self._recargas(recargas)} durante la corrida.")
+        return texto.strip()
+
+    def _texto_agv_actual(self, utilizacion):
+        if not utilizacion:
+            return "No hay detalle disponible para comparar los AGV."
+        mayor = max(utilizacion.values())
+        if mayor == 0:
+            return "Todavía no se ha acumulado tiempo en misiones para comparar los AGV."
+        nombres = sorted(agv for agv, valor in utilizacion.items() if valor == mayor)
+        if len(nombres) == 1:
+            return f"{nombres[0]} tiene la mayor utilización acumulada, con {self._pct(mayor)}."
+        return f"{self._unir_lista(nombres)} comparten la mayor utilización acumulada, con {self._pct(mayor)} cada uno."
+
+    def _respuesta_alertas(self, metricas, problemas, no_disponibles, *, actual):
+        claves = ("solicitudes_pendientes_backlog", "tiempo_promedio_espera_s", "utilizacion_flota_pct",
+                  "bateria_minima_pct", "porcentaje_desplazamiento_vacio")
+        usadas = self._tomar(metricas, claves)
+        condiciones = {
+            "BACKLOG_ELEVADO": f"las solicitudes en espera ({self._solicitudes(usadas['solicitudes_pendientes_backlog'])})",
+            "ESPERA_ELEVADA": f"la espera media ({self._seg(usadas['tiempo_promedio_espera_s'])})",
+            "UTILIZACION_ALTA": f"la utilización de la flota ({self._pct(usadas['utilizacion_flota_pct'])})",
+            "BATERIA_BAJA": f"la batería mínima entre los AGV ({self._pct(usadas['bateria_minima_pct'])})",
+            "DESPLAZAMIENTO_VACIO_ALTO": f"el recorrido sin carga ({self._pct(usadas['porcentaje_desplazamiento_vacio'])})",
+        }
+        observadas = [condiciones[p['codigo']] for p in problemas if p.get('codigo') in condiciones]
+        momento = "hasta este instante" if actual else "en los resultados de la corrida completa"
+        texto = (f"Los indicadores {momento} señalan que conviene revisar {self._unir_lista(observadas)}. "
+                 "Estos valores activan los umbrales configurados; no identifican por sí solos la causa."
+                 if observadas else f"No se detectan desviaciones en los indicadores disponibles {momento}.")
+        limitaciones = self._limitaciones(
+            {c: no_disponibles.get(c, "") for c in claves if usadas[c] is None}, claves)
+        return self._respuesta("ALERTAS", texto, usadas, problemas, limitaciones, problemas)
 
     def _respuesta(self, tipo, texto, metricas, problemas, limitaciones, problemas_para_acciones):
         acciones_revision = self._acciones_revision(problemas_para_acciones)
+        if not limitaciones:
+            limitaciones = self._limitaciones({c: "" for c, v in metricas.items() if v is None}, metricas)
         return {
             "tipo": tipo,
             "respuesta": texto,
@@ -165,6 +385,8 @@ class Nestor:
         texto = self._normalizar(pregunta)
         if not texto:
             return "NO_RECONOCIDA"
+        if "linea" in texto and self._contiene(texto, ("demora", "retras", "espera")):
+            return "DEMORAS_LINEA"
         if self._contiene(texto, ("bateria", "recarga", "recargas", "energia")):
             return "BATERIA"
         if self._contiene(texto, ("utilizacion", "utilizacion de los agv", "trabajo mas", "trabajo mas", "ocupacion", "ocupado")):
@@ -178,6 +400,7 @@ class Nestor:
             "por que hubo espera", "hubo espera",
             "aumento la espera", "aumento espera",
             "por que estamos lentos", "estamos lentos", "lentos", "lento",
+            "espera", "ciclo", "backlog",
         )):
             return "DIAGNOSTICO"
         if self._contiene(texto, (
@@ -187,9 +410,22 @@ class Nestor:
             "como estan los agv", "como estan los agvs",
             "hay algun problema", "estado general", "operacion", "operando",
             "alerta", "alertas", "desviacion", "desviaciones",
+            "pallet", "movimiento", "mision", "estado actual",
         )):
             return "ESTADO_GENERAL"
+        if self._es_consulta_final(pregunta):
+            return "ESTADO_GENERAL"
         return "NO_RECONOCIDA"
+
+    def _es_consulta_final(self, pregunta):
+        return self._contiene(self._normalizar(pregunta), (
+            "resultado final", "resultados finales", "resumen final", "balance final",
+            "indicadores finales", "corrida completa", "simulacion completa",
+            "toda la corrida", "toda la simulacion", "al final", "cierre del turno",
+            "termino la simulacion", "termino el escenario", "termino la operacion",
+            "finalizo la simulacion", "finalizo la operacion", "al cierre",
+            "resultado global", "resultados globales",
+        ))
 
     @staticmethod
     def _normalizar(valor):
@@ -226,6 +462,11 @@ class Nestor:
             "distancia_cargada_m": "No se registró la distancia recorrida con carga.",
             "distancia_vacia_m": "No se registró la distancia recorrida sin carga.",
             "porcentaje_desplazamiento_vacio": "No se registró el porcentaje de recorridos vacíos.",
+            "tiempo_promedio_espera_s": "La espera media aún no está disponible para esta consulta.",
+            "tiempo_promedio_ciclo_s": "El ciclo medio aún no está disponible para esta consulta.",
+            "solicitudes_pendientes_backlog": "No se dispone del número de solicitudes pendientes.",
+            "utilizacion_flota_pct": "No se dispone de la utilización de la flota.",
+            "backlog_maximo": "No se dispone del máximo de solicitudes pendientes para esta consulta.",
         }
         return [nombres.get(clave, "No se registró una métrica necesaria.") for clave in claves if clave in no_disponibles]
 
@@ -246,7 +487,7 @@ class Nestor:
             return texto
 
         texto = (
-            "La flota completó {misiones} y alcanzó una utilización promedio de {utilizacion}. "
+            "La flota completó {misiones} al corte del turno y alcanzó una utilización promedio de {utilizacion}. "
             "Quedó {pendientes}"
         ).format(misiones=misiones, utilizacion=utilizacion, pendientes=pendientes)
         if self._hay_codigo(problemas, "UTILIZACION_ALTA"):
@@ -311,6 +552,14 @@ class Nestor:
         cantidad = self._entero(valor)
         return f"{cantidad} movimiento logístico" if cantidad == 1 else f"{cantidad} movimientos logísticos"
 
+    @staticmethod
+    def _pallets(valor):
+        return f"{valor} pallet" if valor == 1 else f"{valor} pallets"
+
+    @staticmethod
+    def _activas(valor):
+        return "1 misión activa" if valor == 1 else f"{valor} misiones activas"
+
     def _solicitudes(self, valor):
         if valor is None:
             return "dato no disponible"
@@ -331,7 +580,7 @@ class Nestor:
         return "dato no disponible" if valor is None else f"{float(valor):.1f} %"
 
     def _seg(self, valor):
-        return "dato no disponible" if valor is None else f"{float(valor):.1f} s"
+        return formatear_duracion(valor)
 
     def _metros(self, valor):
         if valor is None:

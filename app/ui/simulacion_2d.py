@@ -1,16 +1,15 @@
 """Vista 2D ligera: reproduce estados del simulador, sin lógica de asignación."""
 import html
-import base64
 import time
 import streamlit as st
 from pathlib import Path
 import streamlit.components.v1 as components
 
 COMPONENTES = Path(__file__).parent / "componentes"
-LOGO_NESTLE = base64.b64encode((Path(__file__).parent / "assets" / "nestle_logo.png").read_bytes()).decode("ascii")
 _mapa_interactivo = components.declare_component("mapa_agv_2d", path=str(COMPONENTES / "mapa_2d"))
 
 from app.models.bateria import CARGADORES
+from app.ui.encabezado import logotipos_html
 from app.services.estado_visual import cargar_mapa, estado_en_instante
 from app.services.inventario_transito import eventos_inventario, registros_inventario
 from app.services.conector_wms import WMS_ENDPOINT, enviar_evento_wms, verificar_wms
@@ -388,7 +387,7 @@ def _escenario_2d():
     activo = st.session_state.get("escenario_activo")
     if activo not in ids:
         activo = ids[-1]
-    if st.session_state.get("escenario_2d") not in ids:
+    if st.session_state.get("escenario_2d") != activo:
         st.session_state["escenario_2d"] = activo
     etiquetas = {e["id"]: f"Corrida {i+1} · {e['resultado']['numero_agv']} AGV"
                  for i, e in enumerate(historial)}
@@ -408,13 +407,14 @@ def _escenario_2d():
 def mostrar_2d():
     with st.container(key="vista2d"):
         st.html('<style>'+ (COMPONENTES / "estilos_2d.css").read_text(encoding="utf-8") +'</style>')
-        st.html(f'<div class="control-cabecera"><div><div class="eyebrow">INTRALOGÍSTICA · CONTROL DE FLOTA</div><h2>Centro de operaciones AGV</h2><p>Producto terminado · Meta: 215 pallets entregados · Simulación 2D</p></div><div class="marca-reservada"><img src="data:image/png;base64,{LOGO_NESTLE}" alt="Nestlé"></div></div>')
+        st.html(f'<div class="control-cabecera"><div class="control-cabecera-texto"><div class="eyebrow">INTRALOGÍSTICA · CONTROL DE FLOTA</div><h2>Centro de operaciones AGV</h2><p>Producto terminado · Meta: 215 pallets entregados · Simulación 2D</p></div><div class="marca-reservada">{logotipos_html()}</div></div>')
         escenario = _escenario_2d()
         resultado = escenario["resultado"] if escenario else None
         reloj = st.session_state.setdefault("reloj_2d", {"tiempo_s": 0., "marca": time.monotonic(), "ejecutando": False, "velocidad": 1})
         if escenario and st.session_state.get("escenario_2d_activo") != escenario["id"]:
             st.session_state["escenario_2d_activo"] = escenario["id"]
             reloj.update(tiempo_s=0., marca=time.monotonic(), ejecutando=False)
+            reloj["revision"] = reloj.get("revision", 0) + 1
         if resultado:
             avanzar_reloj(reloj, time.monotonic(), resultado["kpis"]["tiempo_total_s"])
         controles = st.columns([1, 1, 1.2, 1])
@@ -431,6 +431,7 @@ def mostrar_2d():
             key="ir_recarga_2d",
             help="Salta al próximo instante en que un AGV ya va camino al cargador.",
         ):
+            reloj["revision"] = reloj.get("revision", 0) + 1
             reloj.update(
                 tiempo_s=instante_viajando_a_cargador(recarga_disponible),
                 ejecutando=False,
@@ -440,10 +441,11 @@ def mostrar_2d():
             st.session_state["salto_recarga_2d"] = (
                 f"{recarga_disponible['agv']} va hacia {nombre_nodo(recarga_disponible['destino'])}"
             )
-            st.rerun(scope="fragment")
+            st.rerun()
         if st.button("Reiniciar reloj", key="reset_2d"):
             st.session_state.pop("salto_recarga_2d", None)
             reloj.update(tiempo_s=0., ejecutando=False, marca=time.monotonic())
+            reloj["revision"] = reloj.get("revision", 0) + 1
         mapa = cargar_mapa()
         if resultado is None:
             mostrar_mapa(mapa, [], None, estado_lineas_produccion(None, 0, []))
@@ -531,5 +533,6 @@ def mostrar_2d():
             instante=st.number_input("Instante simulado (s)",min_value=0.,max_value=float(resultado["kpis"]["tiempo_total_s"]),value=0.,key="instante_2d")
             if st.button("Ver instante y pausar",key="buscar_2d"):
                 reloj.update(tiempo_s=instante,ejecutando=False,marca=time.monotonic())
-                st.rerun(scope="fragment")
+                reloj["revision"] = reloj.get("revision", 0) + 1
+                st.rerun()
             st.json(next(x for x in estado["flota"] if x["agv"] == seleccionado),expanded=False)

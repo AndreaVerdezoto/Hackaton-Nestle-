@@ -19,12 +19,12 @@
 .st-key-vista2d [data-testid="stMetricLabel"] p{font-size:.75rem;color:#687588}
 .st-key-vista2d [data-testid="stMetricValue"]{font-size:1.5rem;color:#202938}
 .st-key-vista2d [data-testid="stExpander"]{background:white;color:#202938;border-color:#dfe4ea}
-.control-cabecera{display:flex;justify-content:space-between;align-items:center;padding:0 0 14px;border-bottom:1px solid #dce2e9;margin-bottom:7px;gap:20px}
+.control-cabecera{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;padding:0 0 14px;border-bottom:1px solid #dce2e9;margin-bottom:7px;gap:20px}
+.control-cabecera-texto{flex:1 1 340px;min-width:0}
 .control-cabecera .eyebrow{font-size:10px;letter-spacing:1.8px;font-weight:700;color:#b31e32;margin-bottom:5px}
 .control-cabecera h2{font-size:25px;letter-spacing:-.7px;margin:0;color:#202938;font-weight:750}
 .control-cabecera p{margin:5px 0 0;font-size:12px;color:#6c7786}
-.marca-reservada{min-width:116px;padding:12px 20px;border-left:1px solid #dce2e9;text-align:center;color:#b31e32;font-size:19px;font-weight:700;letter-spacing:.4px}
-.marca-reservada img{display:block;width:140px;max-width:100%;height:auto;margin:auto}
+.marca-reservada{max-width:100%;box-sizing:border-box;padding:12px 20px;border-left:1px solid #dce2e9}
 .agv-card{background:#fff;border:1px solid #dfe4ea;border-radius:10px;padding:11px 13px;margin-bottom:9px;box-shadow:0 2px 5px #24334d04;font-size:12px;color:#293549}
 .agv-top{display:flex;justify-content:space-between;align-items:center;font-weight:750;font-size:14px;margin-bottom:6px}
 .agv-status{display:flex;align-items:center;gap:5px;color:#657285;font-size:10px;letter-spacing:.25px;margin-bottom:8px}
@@ -37,4 +37,4 @@
 .tabla-operativa{max-height:225px;overflow:auto;background:white;border:1px solid #dfe4ea;border-radius:10px;color:#334155}
 .tabla-operativa table{border-collapse:collapse;width:100%;font-size:11px}.tabla-operativa th{position:sticky;top:0;background:#f2f5f8;text-align:left;color:#657285;font-weight:600;padding:10px}
 .tabla-operativa td{padding:9px 10px;border-top:1px solid #edf1f4;white-space:normal}.tabla-vacia{padding:16px;color:#7d8999;font-size:12px}
-@media(max-width:700px){.block-container{padding-left:.8rem;padding-right:.8rem}.control-cabecera h2{font-size:21px}.marca-reservada{min-width:85px;padding:8px}.control-cabecera p{font-size:11px}}
+@media(max-width:700px){.block-container{padding-left:.8rem;padding-right:.8rem}.control-cabecera h2{font-size:21px}.control-cabecera-texto{flex-basis:100%}.marca-reservada{padding:0;border-left:0}.control-cabecera p{font-size:11px}}

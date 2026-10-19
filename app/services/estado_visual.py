@@ -114,4 +114,5 @@ def estado_en_instante(resultado, tiempo_s, mapa=None):
     ocupado = sum(max(0, min(t, m["fin_s"])-m["inicio_s"]) for m in movimientos)
     return {"tiempo_s": t, "flota": flota, "pendientes": pendientes, "activas": activas,
             "completados": sum(m["tipo"] == "producto_terminado" and m["fin_s"] <= t for m in movimientos),
+            "movimientos_completados": sum(m["fin_s"] <= t for m in movimientos),
             "utilizacion_pct": 100*ocupado/(t*len(flota)) if t else 0}

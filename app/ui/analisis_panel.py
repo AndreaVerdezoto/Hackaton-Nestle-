@@ -6,6 +6,7 @@ import streamlit as st
 
 from app.models.bateria import CARGADORES, VELOCIDAD_REFERENCIA_MS
 from app.services.escenarios import crear_escenario
+from app.ui.encabezado import mostrar_encabezado
 from app.services.simulador_flota import (
     ParametrosSimulacion, SimuladorFlota,
     exportar_json, SUPUESTOS, LIMITACIONES, VERSION_MODELO, LINEAS, META_PALLETS_TURNO,
@@ -82,7 +83,7 @@ def _escenario_seleccionado():
 
 
 def mostrar_dimensionamiento():
-    st.title("Dimensionamiento")
+    mostrar_encabezado("Dimensionamiento")
     st.caption("Configura el escenario y ejecuta la simulación Python que alimenta Resultados, Simulación 2D y Néstor.")
     _inicializar_parametros()
     _mostrar_obsoletos()
@@ -161,7 +162,7 @@ def mostrar_dimensionamiento():
 
 
 def mostrar_resultados():
-    st.title("Resultados")
+    mostrar_encabezado("Resultados")
     st.caption("Indicadores operativos generados por la simulación ya ejecutada.")
     escenario, activo, etiquetas = _escenario_seleccionado()
     if escenario is None:
@@ -344,7 +345,7 @@ def mostrar_comparacion_resultados(historial, etiquetas):
 
 
 def mostrar_metodologia():
-    st.title("Metodología")
+    mostrar_encabezado("Metodología")
     st.caption("Supuestos, flujo de simulación y alcance técnico del prototipo.")
     with st.expander("Datos conocidos y configurados", expanded=True):
         st.write("Meta operativa: al menos 215 pallets de producto terminado trasladados al almacén en un turno de 8 horas.")

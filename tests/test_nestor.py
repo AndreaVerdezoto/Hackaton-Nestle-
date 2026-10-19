@@ -185,6 +185,7 @@ class NestorTests(unittest.TestCase):
         self.assertEqual(len(respuesta["limitaciones"]), 1)
         self.assertEqual(
             respuesta["respuesta"],
+            "Resultado final · análisis de la corrida completa. "
             "Esta corrida no registró datos de batería ni recargas, así que no puedo determinarlo para este escenario.",
         )
 
@@ -196,6 +197,7 @@ class NestorTests(unittest.TestCase):
         self.assertEqual(respuesta["tipo"], "BATERIA")
         self.assertEqual(
             respuesta["respuesta"],
+            "Resultado final · análisis de la corrida completa. "
             "Esta corrida no registró datos de batería ni recargas, así que no puedo determinarlo para este escenario.",
         )
         self.assertNotIn("bateria_", respuesta["respuesta"])

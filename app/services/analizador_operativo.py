@@ -11,6 +11,7 @@ import math
 
 from app.models.bateria import RESERVA_PCT
 from app.services.indicadores_capacidad import calcular_capacidad
+from app.services.estado_visual import estado_en_instante
 
 
 @dataclass(frozen=True)
@@ -23,13 +24,18 @@ class UmbralesAnalizadorOperativo:
 
 
 class AnalizadorOperativo:
-    def __init__(self, resultado, umbrales=None):
+    """Sin tiempo_s conserva el análisis final; con tiempo_s consulta el estado 2D."""
+
+    def __init__(self, resultado, umbrales=None, *, tiempo_s=None):
         if not isinstance(resultado, dict):
             raise TypeError("El resultado debe ser un diccionario generado por SimuladorFlota.")
         self.resultado = resultado
         self.umbrales = umbrales or UmbralesAnalizadorOperativo()
+        self.estado = estado_en_instante(resultado, tiempo_s) if tiempo_s is not None else None
 
     def obtener_metricas(self):
+        if self.estado is not None:
+            return self._metricas_actuales()
         kpis = self._kpis()
         distancia_total = self._numero(kpis.get("distancia_total_m"))
         distancia_vacia = self._numero(kpis.get("distancia_vacia_m"))
@@ -66,6 +72,21 @@ class AnalizadorOperativo:
 
     def metricas_no_disponibles(self):
         metricas = self.obtener_metricas()
+        if self.estado is not None:
+            nombres = {
+                "backlog_maximo": "El máximo histórico de solicitudes pendientes",
+                "tiempo_promedio_espera_s": "La espera media de las misiones ya iniciadas",
+                "tiempo_promedio_ciclo_s": "El ciclo medio de las misiones ya completadas",
+                "porcentaje_desplazamiento_vacio": "El porcentaje de distancia sin carga",
+                "bateria_promedio_pct": "La batería promedio",
+                "bateria_minima_pct": "La batería mínima",
+                "cantidad_recargas": "La cantidad de recargas",
+                "fallos_errores": "El registro temporal de fallos",
+            }
+            return {
+                clave: f"{nombres.get(clave, 'Esta métrica')} no está disponible en el instante consultado."
+                for clave, valor in metricas.items() if valor is None
+            }
         razones = {}
         if metricas["bateria_promedio_pct"] is None:
             razones["bateria_promedio_pct"] = (
@@ -86,6 +107,45 @@ class AnalizadorOperativo:
             )
         return razones
 
+    def _metricas_actuales(self):
+        """Acumulados hasta el reloj 2D, sin consultar los KPI de cierre."""
+        estado = self.estado
+        t, flota = estado["tiempo_s"], estado["flota"]
+        movimientos = self.resultado["movimientos"]
+        iniciadas = [m for m in movimientos if m["inicio_s"] <= t]
+        completadas = [m for m in iniciadas if m["fin_s"] <= t]
+        total = math.fsum(a["distancia_total_m"] for a in flota)
+        vacia = math.fsum(a["distancia_vacia_m"] for a in flota)
+        con_bateria = isinstance(self.resultado.get("recargas"), dict)
+        niveles = [a["bateria"] for a in flota] if con_bateria else []
+        return {
+            "pallets_completados": estado["completados"],
+            "misiones_completadas": estado["movimientos_completados"],
+            "misiones_activas": len(estado["activas"]),
+            "solicitudes_pendientes_backlog": len(estado["pendientes"]),
+            "backlog_maximo": None,
+            "tiempo_promedio_espera_s": (
+                math.fsum(m["inicio_s"] - m["llegada_s"] for m in iniciadas) / len(iniciadas)
+                if iniciadas else None
+            ),
+            "tiempo_promedio_ciclo_s": (
+                math.fsum(m["fin_s"] - m["llegada_s"] for m in completadas) / len(completadas)
+                if completadas else None
+            ),
+            "utilizacion_flota_pct": estado["utilizacion_pct"],
+            "utilizacion_por_agv_pct": {
+                a["agv"]: 100 * a["tiempo_ocupado_s"] / t if t else 0 for a in flota
+            },
+            "distancia_total_m": total,
+            "distancia_cargada_m": math.fsum(a["distancia_cargada_m"] for a in flota),
+            "distancia_vacia_m": vacia,
+            "porcentaje_desplazamiento_vacio": 100 * vacia / total if total else None,
+            "bateria_promedio_pct": math.fsum(niveles) / len(niveles) if niveles else None,
+            "bateria_minima_pct": min(niveles) if niveles else None,
+            "cantidad_recargas": sum(a["recargas_iniciadas"] for a in flota) if con_bateria else None,
+            "fallos_errores": None,
+        }
+
     def detectar_problemas(self):
         metricas = self.obtener_metricas()
         problemas = []
@@ -95,7 +155,8 @@ class AnalizadorOperativo:
             and metricas["solicitudes_pendientes_backlog"] > self.umbrales.backlog_elevado,
             "BACKLOG_ELEVADO",
             "ALTA",
-            "Existen solicitudes pendientes al corte de la simulacion.",
+            ("Existen solicitudes pendientes en el instante consultado." if self.estado is not None
+             else "Existen solicitudes pendientes al corte de la simulacion."),
             {
                 "solicitudes_pendientes_backlog": metricas["solicitudes_pendientes_backlog"],
                 "umbral_backlog_elevado": self.umbrales.backlog_elevado,
