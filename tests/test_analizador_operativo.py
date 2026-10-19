@@ -17,7 +17,7 @@ class AnalizadorOperativoTests(unittest.TestCase):
 
         self.assertEqual(resultado, antes)
         self.assertEqual(metricas["misiones_completadas"], resultado["kpis"]["completados_turno"])
-        self.assertEqual(metricas["solicitudes_pendientes_backlog"], resultado["kpis"]["backlog_corte"])
+        self.assertEqual(metricas["solicitudes_pendientes_backlog"], resultado["kpis"]["solicitudes_pendientes_turno"])
         self.assertEqual(metricas["tiempo_promedio_espera_s"], resultado["kpis"]["espera_media_s"])
         self.assertEqual(metricas["tiempo_promedio_ciclo_s"], resultado["kpis"]["ciclo_medio_s"])
         self.assertEqual(metricas["utilizacion_flota_pct"], resultado["kpis"]["utilizacion_media_pct"])

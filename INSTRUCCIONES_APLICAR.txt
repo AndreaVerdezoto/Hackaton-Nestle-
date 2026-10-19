@@ -1,0 +1,39 @@
+ACTUALIZACION DE PRODUCCION Y META — HACKATHON NESTLE
+
+CONTENIDO: ZIP INCREMENTAL (NO ES EL PROYECTO COMPLETO).
+
+INSTRUCCIONES:
+1. Haz una copia de seguridad de la version vigente.
+2. Extrae este ZIP EN LA RAIZ de Hackaton-Nestle-, permitiendo reemplazar los archivos.
+   No elimines otros archivos del proyecto. No incluye cambios a FlexSim ni al grafo.
+3. Abre tu proyecto normal con: streamlit run interfaz.py
+4. En Dimensionamiento, el tiempo de produccion GENERAL ahora empieza en 7 min.
+   En el expander "Avanzado · produccion por linea" puedes poner tiempos diferentes.
+5. Simula de nuevo: las corridas de modelos previos se archivan automaticamente.
+6. La meta de Nestle es 215 pallets entregados AL ALMACEN.
+   La produccion con 5 lineas a 7 min genera 340 pallets y 340 solicitudes.
+   Cumplimiento puede superar el 100 % y muestra cuantos pallets extra se almacenaron.
+
+VERIFICACIONES:
+- Con 7 min / 5 lineas / 8 h / bateria activa:
+  2 AGV => 339 almacenados / +124 sobre meta / 1 por almacenar
+  3-5 AGV => 340 almacenados / +125 sobre meta
+- Con tiempo base anterior (11 min, 215 pallets), misiones, trazas de produccion
+  y demanda resultan identicas a la version que subiste.
+- Pruebas del nucleo y compilacion pasan.
+- Pruebas que importan Streamlit requieren el entorno de tu PC: el interprete
+  aqui no tiene Streamlit instalado. Ejecutalas antes del push si quieres
+  verificar tambien los controles en pantalla.
+
+ARCHIVOS INCLUIDOS:
+- app/services/simulador_flota.py
+- app/services/indicadores_capacidad.py
+- app/ui/analisis_panel.py
+- app/ui/simulacion_2d.py
+- CALCULO_FLOTA.md
+- RESULTADOS_215_PT.md
+- README.md
+- tests/test_simulador_flota.py
+- tests/test_indicadores_capacidad.py
+- tests/test_bateria_2d.py
+- tests/test_interfaz_analisis.py

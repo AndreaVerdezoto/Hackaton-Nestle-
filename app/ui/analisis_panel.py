@@ -5,9 +5,10 @@ from pathlib import Path
 import streamlit as st
 
 from app.models.bateria import CARGADORES, VELOCIDAD_REFERENCIA_MS
+from app.services.escenarios import crear_escenario
 from app.services.simulador_flota import (
     ParametrosSimulacion, SimuladorFlota,
-    exportar_json, SUPUESTOS, LIMITACIONES, VERSION_MODELO,
+    exportar_json, SUPUESTOS, LIMITACIONES, VERSION_MODELO, LINEAS, META_PALLETS_TURNO,
 )
 
 BASE = asdict(ParametrosSimulacion())
@@ -18,32 +19,37 @@ def restablecer():
         st.session_state[f"ana_{nombre}"] = valor
     st.session_state.pop("analisis_resultados", None)
     st.session_state.pop("sensibilidad_resultados", None)
-
-
-def duracion_texto(segundos):
-    segundos = round(segundos)
-    return f"{segundos // 3600} h {(segundos % 3600) // 60:02d} min {segundos % 60:02d} s"
-
-
-def margen_texto(kpis):
-    if kpis["exceso_tiempo_s"] > 0:
-        return f"Exceso: {kpis['exceso_tiempo_s']/60:.1f} min"
-    return f"Margen: {kpis['margen_tiempo_s']/60:.1f} min"
-
-
-def mostrar_analisis():
-    mostrar_dimensionamiento()
+    st.session_state["ana_minutos_produccion"] = 7.0
+    st.session_state["ana_personalizar_lineas"] = False
+    for linea in LINEAS:
+        st.session_state[f"ana_minutos_{linea}"] = 7.0
 
 
 def _inicializar_parametros():
     for nombre, valor in BASE.items():
         st.session_state.setdefault(f"ana_{nombre}", valor)
+    st.session_state.setdefault("ana_minutos_produccion", 7.0)
+    st.session_state.setdefault("ana_personalizar_lineas", False)
+    for linea in LINEAS:
+        st.session_state.setdefault(f"ana_minutos_{linea}", 7.0)
     # La referencia del prototipo es fija: 1 m/s. Evita conservar 2 m/s de sesiones anteriores.
     st.session_state["ana_velocidad_maxima_ms"] = VELOCIDAD_REFERENCIA_MS
 
 
+def _sincronizar_tiempos_lineas():
+    if st.session_state["ana_personalizar_lineas"]:
+        for linea in LINEAS:
+            st.session_state[f"ana_minutos_{linea}"] = st.session_state["ana_minutos_produccion"]
+
+
 def _valores_parametros():
-    return {k: st.session_state[f"ana_{k}"] for k in BASE}
+    valores = {k: st.session_state[f"ana_{k}"] for k in BASE}
+    valores["tiempo_produccion_s"] = st.session_state["ana_minutos_produccion"] * 60
+    valores["tiempos_produccion_lineas_s"] = (
+        {linea: st.session_state[f"ana_minutos_{linea}"] * 60 for linea in LINEAS}
+        if st.session_state["ana_personalizar_lineas"] else None
+    )
+    return valores
 
 
 def _historial_vigente():
@@ -77,15 +83,14 @@ def _escenario_seleccionado():
 
 def mostrar_dimensionamiento():
     st.title("Dimensionamiento")
-    st.caption("Configura el escenario y ejecuta la simulación Python que alimenta Resultados, Simulación 2D, Néstor y Rentabilidad.")
+    st.caption("Configura el escenario y ejecuta la simulación Python que alimenta Resultados, Simulación 2D y Néstor.")
     _inicializar_parametros()
     _mostrar_obsoletos()
-    st.info("Meta de Nestlé: al menos 215 pallets de producto terminado por turno de 8 horas.")
+    st.caption(f"Meta fija: {META_PALLETS_TURNO} pallets entregados al almacén. Las entregas adicionales cuentan como extra.")
 
     cantidad = st.selectbox("Número de AGV a simular", [2, 3, 4, 5], key="flota_elegida")
     columnas = st.columns(3)
     principales = [
-        ("pallets_terminados", "Pallets terminados por turno", 1, "Demanda de producto terminado del escenario."),
         ("duracion_turno_s", "Duración del turno (s)", 1.0, "28800 segundos equivalen a 8 horas."),
         ("velocidad_maxima_ms", "Velocidad máxima (m/s)", 0.01, "Referencia fija del prototipo: 1 m/s."),
         ("tiempo_carga_s", "Carga (s)", 0.0, "Tiempo por pallet."),
@@ -100,6 +105,18 @@ def mostrar_dimensionamiento():
                 help=ayuda,
                 disabled=campo == "velocidad_maxima_ms",
             )
+
+    st.number_input("Producción por pallet · todas las líneas (min)", min_value=0.1, step=0.5,
+                    key="ana_minutos_produccion", help="Valor inicial: 7 minutos. No cambia la meta de 215 pallets.")
+    with st.expander("Avanzado · producción por línea", expanded=False):
+        st.checkbox("Personalizar tiempos de cada línea", key="ana_personalizar_lineas",
+                    on_change=_sincronizar_tiempos_lineas)
+        if st.session_state["ana_personalizar_lineas"]:
+            for linea in LINEAS:
+                st.number_input(f"{linea} (min/pallet)", min_value=0.1, step=0.5,
+                                key=f"ana_minutos_{linea}")
+        else:
+            st.caption("Todas las líneas usan el tiempo general.")
 
     with st.expander("Parámetros avanzados", expanded=False):
         izquierda, derecha = st.columns(2)
@@ -119,20 +136,17 @@ def mostrar_dimensionamiento():
     st.button("Restablecer valores base", on_click=restablecer)
 
     valores = _valores_parametros()
-    st.caption(f"{valores['pallets_terminados']} pallets terminados + {valores['movimientos_suministro']} suministros · {valores['duracion_turno_s']/3600:g} h · "
+    st.caption(f"{META_PALLETS_TURNO} pallets de meta · {valores['duracion_turno_s']/3600:g} h · "
                f"{valores['velocidad_maxima_ms']:g} m/s · carga {valores['tiempo_carga_s']:g} s · "
                f"descarga {valores['tiempo_descarga_s']:g} s · escala {valores['factor_escala_metros_por_unidad']:g}")
 
-    from app.services.analisis_negocio import crear_escenario, LineaBase, ParametrosEconomicos
     historial = _historial_vigente()
     if st.button("Simular escenario", type="primary", width="stretch"):
         try:
             resultado = SimuladorFlota(ParametrosSimulacion(**valores)).ejecutar(
                 cantidad, simular_bateria=True, cargadores=CARGADORES
             )
-            escenario = crear_escenario(resultado,
-                LineaBase(**st.session_state.get("base_guardada", {})),
-                ParametrosEconomicos(**st.session_state.get("economia_guardada", {})))
+            escenario = crear_escenario(resultado)
             historial.append(escenario)
             st.session_state["escenario_activo"] = escenario["id"]
         except (ValueError, RuntimeError, OSError) as exc:
@@ -143,7 +157,7 @@ def mostrar_dimensionamiento():
             r = escenario["resultado"]
             p = r["parametros"]
             st.success("Simulación completada. Consulta los indicadores en Resultados o visualiza el escenario en Simulación 2D.")
-            st.caption(f"Escenario simulado: {r['numero_agv']} AGV · {p['pallets_terminados']} pallets · {p['duracion_turno_s']/3600:g} h · {p['velocidad_maxima_ms']:g} m/s")
+            st.caption(f"Escenario simulado: {r['numero_agv']} AGV · {p['pallets_terminados']} pallets producidos · meta {META_PALLETS_TURNO} · {p['duracion_turno_s']/3600:g} h")
 
 
 def mostrar_resultados():
@@ -155,7 +169,8 @@ def mostrar_resultados():
         return
     resultado = escenario["resultado"]
     valores = _valores_parametros() if all(f"ana_{k}" in st.session_state for k in BASE) else None
-    if valores and (resultado["parametros"] != valores or resultado["numero_agv"] != st.session_state.get("flota_elegida")):
+    if valores and (any(resultado["parametros"].get(k) != v for k, v in valores.items() if k != "pallets_terminados")
+                   or resultado["numero_agv"] != st.session_state.get("flota_elegida")):
         st.info("Se muestra una corrida guardada. Ejecuta nuevamente desde Dimensionamiento para evaluar parámetros distintos.")
 
     mostrar_resumen_operativo(resultado)
@@ -164,17 +179,6 @@ def mostrar_resultados():
     mostrar_comparacion_resultados(_historial_vigente(), etiquetas)
     mostrar_analisis_tecnico(resultado)
 
-
-def _escenario_activo_guardado():
-    historial = _historial_vigente()
-    if not historial:
-        return None
-    activo = st.session_state.get("escenario_activo")
-    escenario = next((e for e in historial if e["id"] == activo), None)
-    if escenario is None:
-        escenario = historial[-1]
-        st.session_state["escenario_activo"] = escenario["id"]
-    return escenario
 
 
 def _numero(valor, unidad="", decimales=1):
@@ -194,18 +198,23 @@ def _tarjetas(datos, columnas=3):
 def mostrar_resumen_operativo(resultado):
     k, p, n = resultado["kpis"], resultado["parametros"], resultado["numero_agv"]
     st.subheader("Resumen operativo")
-    st.write(
-        f"Con {n} AGV se atendieron {k['pallets_terminados_turno']} de "
-        f"{p['pallets_terminados']} pallets de producto terminado durante el escenario simulado."
-    )
+    almacenados = k["pallets_terminados_turno"]
+    meta = k.get("meta_pallets_turno", META_PALLETS_TURNO)
+    extras = k.get("pallets_extra_meta", max(0, almacenados - meta))
+    if almacenados >= meta:
+        st.success(f"Meta {'superada' if extras else 'cumplida'}: {almacenados} pallets entregados al almacén "
+                   f"de {meta} requeridos" + (f" · **+{extras} extra**" if extras else ""))
+    else:
+        st.warning(f"Meta pendiente: {almacenados}/{meta} pallets entregados al almacén.")
+    st.progress(min(1.0, almacenados / meta), text=f"{k['cumplimiento_pct']:.1f} % de la meta")
     espera = k.get("espera_agv_media_pt_s", k.get("espera_media_s"))
     _tarjetas([
-        ("Pallets requeridos", p["pallets_terminados"]),
-        ("Pallets completados", k["pallets_terminados_turno"]),
-        ("Cumplimiento", _numero(k.get("cumplimiento_pct"), " %")),
-        ("Utilización en misiones", _numero(k.get("utilizacion_media_pct"), " %")),
+        ("Meta de Nestlé", meta),
+        ("Pallets almacenados", almacenados),
+        ("Pallets extra", extras),
+        ("Pallets por almacenar", k.get("pallets_terminados_pendientes", 0)),
         ("Espera retiro PT", _numero(espera, " s")),
-        ("Pallets pendientes", k.get("pallets_terminados_pendientes", 0)),
+        ("Utilización en misiones", _numero(k.get("utilizacion_media_pct"), " %")),
     ])
     st.caption("Utilización: tiempo en misiones dentro del turno. Espera retiro PT: promedio de toda la corrida. Cambiar de pestaña no recalcula la simulación.")
 
@@ -241,12 +250,12 @@ def mostrar_gestion_solicitudes(resultado):
         ("Solicitudes completadas", completadas),
         ("Solicitudes pendientes", pendientes),
         ("Misiones activas al cierre", activas),
-        ("Aún no generadas", no_generadas),
+        ("Pallets aún en producción", no_generadas),
     ], columnas=5)
     st.caption(
-        f"Plan logístico total: {total} movimientos. Al cierre: {generadas} solicitudes generadas = "
+        f"Plan logístico total: {total} solicitudes de retiro. Al cierre: {generadas} solicitudes generadas = "
         f"{completadas} completadas + {pendientes} pendientes + {activas} activas; "
-        f"{no_generadas} movimientos del plan aún no se habían generado."
+        f"{no_generadas} pallets aún seguían en producción y todavía no habían generado solicitud."
     )
     with st.expander("Ver detalle de solicitudes", expanded=False):
         filas = []
@@ -281,9 +290,9 @@ def mostrar_estado_flota(resultado):
     for agv in resultado["por_agv"]:
         filas.append({
             "AGV": agv["agv"],
-            "Movimientos turno": agv["movimientos_turno"],
-            "Movimientos totales": agv["movimientos_totales"],
-            "Pallets terminados": agv["pallets_terminados_turno"],
+            "Retiros turno": agv["movimientos_turno"],
+            "Retiros totales": agv["movimientos_totales"],
+            "Pallets almacenados": agv["pallets_terminados_turno"],
             "Utilización (%)": round(agv["utilizacion_pct"], 1),
             "Tiempo ocupado (h)": round(agv["ocupado_turno_s"] / 3600, 2),
             "Tiempo libre (h)": round(agv["libre_turno_s"] / 3600, 2),
@@ -322,125 +331,16 @@ def mostrar_comparacion_resultados(historial, etiquetas):
         filas.append({
             "Escenario": etiquetas[escenario["id"]],
             "AGV": r["numero_agv"],
-            "Pallets completados": k["pallets_terminados_turno"],
-            "Cumplimiento (%)": round(k["cumplimiento_pct"], 1),
-            "Pallets pendientes": k["pallets_terminados_pendientes"],
+            "Pallets almacenados": k["pallets_terminados_turno"],
+            "Meta alcanzada (%)": round(k["cumplimiento_pct"], 1),
+            "Extra sobre 215": k.get("pallets_extra_meta", 0),
+            "Pallets por almacenar": k["pallets_terminados_pendientes"],
             "Espera retiro PT (s)": round(k.get("espera_agv_media_pt_s", k["espera_media_s"]), 2),
             "Utilización en misiones (%)": round(k["utilizacion_media_pct"], 1),
             "Capacidad disponible (%)": round(k["capacidad_disponible_pct"], 1),
         })
     st.dataframe(filas, hide_index=True, width="stretch")
 
-
-def mostrar_rentabilidad():
-    from app.services.analisis_negocio import LineaBase, ParametrosEconomicos, crear_escenario, comparar_linea_base
-    from app.ui.negocio_panel import numero, tarjetas, campos, entradas_rentabilidad, mostrar_equilibrio
-
-    st.title("Rentabilidad")
-    escenario = _escenario_activo_guardado()
-    if escenario is None:
-        st.info("Ejecuta primero un escenario en Dimensionamiento para analizar rentabilidad.")
-        return
-    r = escenario["resultado"]
-    n = r["numero_agv"]
-    k = r["kpis"]
-    p = r["parametros"]
-    st.caption(f"Escenario activo: {n} AGV. Los campos vacíos se mantienen como dato pendiente, no como cero.")
-
-    st.subheader("Escenario simulado")
-    movimientos_totales = k.get("movimientos_logisticos_totales", len(r.get("movimientos", [])))
-    datos_simulacion = [
-        ("Flota", f"{n} AGV"),
-        ("Pallets almacenados", f"{k['pallets_terminados_turno']} / {p['pallets_terminados']}"),
-        ("Movimientos completados", f"{k['completados_turno']} / {movimientos_totales}"),
-        ("Cumplimiento", f"{k['cumplimiento_pct']:.1f} %"),
-    ]
-    for columna, (titulo, valor) in zip(st.columns(4), datos_simulacion):
-        columna.metric(titulo, valor)
-    st.caption("Datos operativos del mismo escenario ejecutado en Dimensionamiento y visualizado en Simulación 2D.")
-
-    try:
-        with st.expander("Situación actual / Línea base", expanded=False):
-            st.caption("Dato de planta / supuesto editable. Completa únicamente los datos disponibles.")
-            base = campos(escenario, LineaBase, "base", {
-                "movimientos_turno": "Movimientos actuales por turno",
-                "tiempo_manual_movimiento_s": "Tiempo manual por movimiento (s)",
-                "espera_logistica_media_s": "Espera logística actual media por movimiento (s)",
-            })
-            # Conserva los dos datos históricos aunque ya no se muestren: no intervienen en los cálculos actuales.
-            base = LineaBase(
-                movimientos_turno=base.movimientos_turno,
-                tiempo_manual_movimiento_s=base.tiempo_manual_movimiento_s,
-                perdida_produccion_turno_s=escenario["linea_base"].get("perdida_produccion_turno_s"),
-                pallets_terminados_turno=escenario["linea_base"].get("pallets_terminados_turno"),
-                espera_logistica_media_s=base.espera_logistica_media_s,
-                comparacion_equivalente=base.comparacion_equivalente,
-            )
-        impacto = comparar_linea_base(r, base)
-        st.subheader("Impacto operativo frente a línea base")
-        tarjetas([
-            ("Actual: movimientos/turno", numero(base.movimientos_turno)),
-            ("Simulada: movimientos/turno", r["kpis"]["completados_turno"]),
-            ("Movimientos adicionales atendidos", numero(impacto["movimientos_adicionales_atendidos"])),
-            ("Incremento logístico", numero(impacto["incremento_logistico_pct"], " %")),
-            ("Horas logísticas recuperadas", numero(impacto["horas_logisticas_recuperadas"], " h")),
-            ("Reducción de espera media", numero(impacto["reduccion_espera_media_s"], " s")),
-        ])
-        with st.expander("Completar datos económicos", expanded=False):
-            economia = entradas_rentabilidad(escenario, n)
-        borrador = crear_escenario(r, base, economia)
-    except (ValueError, OverflowError) as exc:
-        st.error(str(exc))
-        return
-
-    e = borrador["economia"]
-    st.subheader("Resultado financiero")
-    payback_texto = ("No aplicable" if e["beneficio_neto_anual"] is not None and e["beneficio_neto_anual"] <= 0
-                     else numero(e["payback_anios"], " años"))
-    roi_texto = "No aplicable (CAPEX cero)" if e["capex"] == 0 else numero(e["roi_anual_pct"], " %")
-    tarjetas([
-        ("Inversión inicial", numero(e["capex"], " USD")),
-        ("Beneficio neto anual", numero(e["beneficio_neto_anual"], " USD")),
-        ("ROI anual", roi_texto),
-        ("Payback", payback_texto),
-    ])
-    objetivo_payback = economia.payback_objetivo_anios
-    beneficio_minimo = e.get("beneficio_neto_anual_minimo")
-    if beneficio_minimo is None:
-        st.markdown(
-            f"**Punto de equilibrio ({objetivo_payback:g} años):** "
-            "completa la inversión inicial para calcular el beneficio neto anual mínimo."
-        )
-    else:
-        st.markdown(
-            f"**Punto de equilibrio ({objetivo_payback:g} años):** beneficio neto anual mínimo "
-            f"**{numero(beneficio_minimo, ' USD/año')}**."
-        )
-
-    if e["capex"] is not None and e["beneficio_neto_anual"] is not None:
-        st.write(e["estado"])
-    else:
-        st.info("Aún no hay información suficiente para calcular ROI y payback.")
-    with st.expander("Ver detalle del punto de equilibrio", expanded=False):
-        mostrar_equilibrio(e, economia, n)
-    with st.expander("¿Cómo se calcula la rentabilidad?", expanded=False):
-        st.code("CAPEX = AGV × costo_AGV + integración + infraestructura + cargadores + otros_iniciales\n"
-                "Producción anual = pallets_adicionales/turno × margen/pallet × turnos/día × días/año\n"
-                "Ahorro anual = estimación directa; si está vacía, usar desglose avanzado × %evitable / 100\n"
-                "OPEX anual = AGV × mantenimiento_por_AGV + energía + otros_opex\n"
-                "Neto anual = producción anual + ahorro anual − OPEX anual\n"
-                "Payback años = CAPEX / neto anual (neto > 0); meses = años × 12\n"
-                "ROI anual (%) = neto anual / CAPEX × 100 (CAPEX > 0)", language=None)
-        st.caption("Recuperación simple, sin descuento, impuestos ni financiación. Vacío es dato pendiente; cero debe introducirse explícitamente.")
-    cambios = any(borrador[c] != escenario[c] for c in ("linea_base", "parametros_economicos"))
-    if cambios:
-        st.info("Vista previa con supuestos editados. Guárdalos para incluirlos en la comparación.")
-    if st.button("Guardar análisis de negocio", key=f"guardar_rentabilidad_{escenario['id']}"):
-        for campo in ("linea_base", "parametros_economicos", "impacto", "economia"):
-            escenario[campo] = borrador[campo]
-        st.session_state.base_guardada = asdict(base)
-        st.session_state.economia_guardada = asdict(economia)
-        st.success("Supuestos guardados para esta corrida y como punto de partida de la próxima simulación.")
 
 
 def mostrar_metodologia():
@@ -454,7 +354,7 @@ def mostrar_metodologia():
         mostrar_supuestos()
     with st.expander("Flujo de simulación", expanded=False):
         st.write("Dimensionamiento crea un escenario con los parámetros seleccionados y lo guarda en la sesión.")
-        st.write("Resultados, Simulación 2D, Rentabilidad y Néstor leen ese escenario guardado; no ejecutan una nueva corrida al cambiar de pestaña.")
+        st.write("Resultados, Simulación 2D y Néstor leen ese escenario guardado; no ejecutan una nueva corrida al cambiar de pestaña.")
         st.write("Las rutas se calculan sobre el grafo existente y la asignación se mantiene en los servicios actuales.")
     with st.expander("Limitaciones del modelo", expanded=False):
         for texto in LIMITACIONES:
@@ -467,19 +367,20 @@ def mostrar_analisis_tecnico(resultado):
         st.caption("Detalle completo de la corrida seleccionada. Esta sección reutiliza el resultado guardado y no ejecuta una nueva simulación.")
         k = resultado["kpis"]
         campos_kpi = [
-            ("pallets_terminados_turno", "Pallets terminados almacenados dentro del turno"),
-            ("pallets_terminados_pendientes", "Pallets terminados pendientes"),
-            ("cumplimiento_pct", "Cumplimiento de producto terminado (%)"),
-            ("tiempo_producto_terminado_s", "Tiempo para producto terminado (s)"),
-            ("suministros_turno", "Suministros completados dentro del turno"),
-            ("suministros_pendientes", "Suministros pendientes"),
-            ("completados_turno", "Movimientos completados"),
+            ("pallets_terminados_turno", "Pallets almacenados dentro del turno"),
+            ("pallets_terminados_pendientes", "Pallets por almacenar"),
+            ("cumplimiento_pct", "Cumplimiento respecto a la meta de 215 (%)"),
+            ("meta_pallets_turno", "Meta de Nestlé (pallets)"),
+            ("pallets_extra_meta", "Pallets extra entregados al almacén"),
+            ("pallets_producidos_turno", "Pallets producidos en el turno"),
+            ("tiempo_producto_terminado_s", "Tiempo hasta almacenar el último pallet (s)"),
+            ("completados_turno", "Retiros completados"),
             ("solicitudes_generadas_turno", "Solicitudes generadas al cierre"),
             ("solicitudes_pendientes_turno", "Solicitudes pendientes al cierre"),
             ("solicitudes_activas_turno", "Misiones activas al cierre"),
-            ("solicitudes_no_generadas_turno", "Movimientos aún no generados al cierre"),
-            ("backlog_corte", "Movimientos restantes del plan al cierre"),
-            ("throughput_mov_h", "Movimientos por hora"),
+            ("solicitudes_no_generadas_turno", "Pallets aún en producción al cierre"),
+            ("backlog_corte", "Pallets por almacenar al cierre"),
+            ("throughput_mov_h", "Retiros por hora"),
             ("espera_media_s", "Espera media (s)"),
             ("ciclo_medio_s", "Tiempo de ciclo medio (s)"),
             ("backlog_maximo", "Cola máxima"),
@@ -494,11 +395,11 @@ def mostrar_analisis_tecnico(resultado):
                      hide_index=True, width="stretch")
         st.markdown("**Detalle por AGV**")
         st.dataframe(resultado["por_agv"], hide_index=True, width="stretch")
-        st.markdown("**Desglose de movimientos**")
+        st.markdown("**Desglose de retiros**")
         movimientos = resultado["movimientos"]
         if movimientos:
             elegido = st.selectbox(
-                "Movimiento del ejemplo",
+                "Retiro del ejemplo",
                 [m["numero"] for m in movimientos],
                 format_func=lambda n: f"M-{n:03d}",
                 key=f"movimiento_tecnico_{resultado['numero_agv']}_{resultado['timestamp']}",
@@ -507,8 +408,7 @@ def mostrar_analisis_tecnico(resultado):
             st.write(f"{m['linea']} · {m['tipo']} · {m['id_pallet']} · {m['agv']}")
             st.caption(f"{m['origen']} → {m['destino']} · llegada {m['llegada_s']:.2f} s · inicio {m['inicio_s']:.2f} s · fin {m['fin_s']:.2f} s")
             st.dataframe([
-                {"Componente": "Reposicionamiento / entrega → recogida", "Tiempo (s)": m["vacio"]["tiempo_s"]},
-                {"Componente": "Disponibilidad de producto terminado", "Tiempo (s)": m["espera_disponibilidad_s"]},
+                {"Componente": "Desplazamiento vacío hasta la línea", "Tiempo (s)": m["vacio"]["tiempo_s"]},
                 {"Componente": "Carga", "Tiempo (s)": m["carga_s"]},
                 {"Componente": "Viaje cargado", "Tiempo (s)": m["cargado"]["tiempo_s"]},
                 {"Componente": "Descarga", "Tiempo (s)": m["descarga_s"]},
@@ -524,7 +424,7 @@ def mostrar_analisis_tecnico(resultado):
 def mostrar_supuestos():
     for texto in SUPUESTOS:
         st.write(texto)
-    st.caption("Valores base: carga 30 s, descarga 30 s, espera de retorno 0 s, escala 1 m/unidad, "
+    st.caption("Valores base: carga 30 s, descarga 30 s, escala 1 m/unidad, "
                "peso 500 kg y todos los AGV inicialmente en ControlPoint7.")
 
 
@@ -542,69 +442,3 @@ def mostrar_documentacion():
         st.markdown("**Limitaciones del modelo**")
         for texto in LIMITACIONES:
             st.write(texto)
-
-
-def mostrar_metricas_completas(resultados):
-    with st.expander("Ver métricas completas", expanded=False):
-        st.caption("Completados, pendientes y utilización: dentro del turno. Promedios y distancias: toda la demanda hasta terminar.")
-        campos = [
-            ("pallets_terminados_turno", "Pallets terminados almacenados dentro del turno"),
-            ("pallets_terminados_pendientes", "Pallets terminados pendientes"),
-            ("cumplimiento_pct", "Cumplimiento de producto terminado (%)"),
-            ("tiempo_producto_terminado_s", "Tiempo para producto terminado (s)"),
-            ("suministros_turno", "Suministros completados dentro del turno"),
-            ("suministros_pendientes", "Suministros pendientes"),
-            ("completados_turno", "Movimientos completados"),
-            ("solicitudes_generadas_turno", "Solicitudes generadas al cierre"),
-            ("solicitudes_pendientes_turno", "Solicitudes pendientes al cierre"),
-            ("solicitudes_activas_turno", "Misiones activas al cierre"),
-            ("solicitudes_no_generadas_turno", "Movimientos aún no generados al cierre"),
-            ("backlog_corte", "Movimientos restantes del plan al cierre"),
-            ("throughput_mov_h", "Movimientos por hora"), ("espera_media_s", "Espera media (s)"),
-            ("ciclo_medio_s", "Tiempo de ciclo medio (s)"), ("muestra_promedios", "Movimientos incluidos en los promedios"),
-            ("backlog_maximo", "Cola máxima"), ("utilizacion_media_pct", "Utilización media (%)"),
-            ("tiempo_total_s", "Tiempo total (s)"), ("hora_fin_movimiento_ultimo_id_s", "Fin del último ID de movimiento (s)"),
-            ("margen_tiempo_s", "Margen (s)"), ("margen_turno_pct", "Margen del turno (%)"),
-            ("exceso_tiempo_s", "Exceso (s)"), ("distancia_vacia_m", "Distancia vacía (m)"),
-            ("distancia_cargada_m", "Distancia cargada (m)"), ("distancia_total_m", "Distancia total (m)"),
-        ]
-        st.dataframe([{"Métrica": etiqueta, **{f"{r['numero_agv']} AGV": r["kpis"][campo] for r in resultados}}
-                      for campo, etiqueta in campos], hide_index=True, width="stretch")
-        st.caption("Distancia vacía: recorrido sin pallet. Distancia cargada: recorrido transportando un pallet.")
-
-
-def mostrar_detalle_agv(resultados):
-    with st.expander("Ver detalle por AGV", expanded=False):
-        flota = st.selectbox("Flota del detalle", [r["numero_agv"] for r in resultados])
-        r = next(r for r in resultados if r["numero_agv"] == flota)
-        st.caption("Movimientos y pallets terminados al corte y totales. Tiempos dentro del turno; distancias hasta terminar toda la demanda.")
-        campos = [("movimientos_turno", "Movimientos dentro del turno"), ("movimientos_totales", "Movimientos totales"),
-                  ("pallets_terminados_turno", "Pallets terminados dentro del turno"), ("pallets_terminados_totales", "Pallets terminados totales"),
-                  ("utilizacion_pct", "Utilización (%)"), ("ocupado_turno_s", "Tiempo ocupado (s)"),
-                  ("libre_turno_s", "Tiempo libre (s)"), ("distancia_vacia_m", "Distancia vacía (m)"),
-                  ("distancia_cargada_m", "Distancia cargada (m)"), ("distancia_total_m", "Distancia total (m)")]
-        st.dataframe([{"Métrica": etiqueta, **{a["agv"]: a[campo] for a in r["por_agv"]}}
-                      for campo, etiqueta in campos], hide_index=True, width="stretch")
-        st.dataframe([{campo: m[campo] for campo in ("numero", "id_mision", "tipo", "linea", "agv", "llegada_s", "inicio_s", "fin_s", "espera_s")}
-                      for m in r["movimientos"]], hide_index=True)
-
-
-def mostrar_desglose(resultados):
-    flota = st.selectbox("Flota del ejemplo", [r["numero_agv"] for r in resultados])
-    r = next(r for r in resultados if r["numero_agv"] == flota)
-    ciclo = st.selectbox("Misión del ejemplo", [c["id_mision"] for c in r["demanda"]])
-    for m in (m for m in r["movimientos"] if m["id_mision"] == ciclo):
-        st.markdown(f"**{m['linea']} · {m['tipo']} · {m['id_pallet']} · {m['agv']}**")
-        st.caption(f"{m['origen']} → {m['destino']} · llegada {m['llegada_s']:.2f} s · inicio {m['inicio_s']:.2f} s · fin {m['fin_s']:.2f} s")
-        st.dataframe([
-            {"Componente": "Reposicionamiento / entrega → recogida", "Tiempo (s)": m["vacio"]["tiempo_s"]},
-            {"Componente": "Disponibilidad de producto terminado", "Tiempo (s)": m["espera_disponibilidad_s"]},
-            {"Componente": "Carga", "Tiempo (s)": m["carga_s"]},
-            {"Componente": "Viaje cargado", "Tiempo (s)": m["cargado"]["tiempo_s"]},
-            {"Componente": "Descarga", "Tiempo (s)": m["descarga_s"]},
-            {"Componente": "Total de servicio", "Tiempo (s)": m["duracion_servicio_s"]},
-        ], hide_index=True)
-        st.dataframe([{"Trayecto": nombre, "Distancia grafo": m[campo]["distancia_grafo"],
-                       "Escala (m/unidad)": r["parametros"]["factor_escala_metros_por_unidad"],
-                       "Distancia (m)": m[campo]["distancia_m"]}
-                      for campo, nombre in (("vacio", "Sin pallet"), ("cargado", "Con pallet"))], hide_index=True)

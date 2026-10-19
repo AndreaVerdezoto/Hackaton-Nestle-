@@ -3,28 +3,14 @@ from pathlib import Path
 import heapq
 import json
 
-from app.models.agv import EstadoAGV
-from app.models.solicitud import EstadoSolicitud, PrioridadSolicitud
-from app.models.mision import Mision
-from app.services.flexsim_cliente import FlexSimCliente
+from app.models.solicitud import PrioridadSolicitud
 
 
 class GestorFlota:
+    """Servicios compartidos de red y prioridad usados por el simulador actual."""
+
     MAPEO_UBICACIONES = {
         "ALMACEN": "ControlPoint7",
-
-        "TRANSIT_4": "ControlPoint7",
-        "TRANSIT_3": "ControlPoint8",
-        "TRANSIT_2": "ControlPoint11",
-        "TRANSIT_1": "ControlPoint13",
-    }
-
-    NODOS_SUMINISTRO = {
-        "COOKIE_1": "ControlPoint23",
-        "COOKIE_2": "ControlPoint21",
-        "COOKIE_3": "ControlPoint22",
-        "CHOCOLATE": "ControlPoint17",
-        "WAFER": "ControlPoint14",
     }
 
     NODOS_PRODUCTO_TERMINADO = {
@@ -35,69 +21,10 @@ class GestorFlota:
         "WAFER": "ControlPoint15",
     }
 
-    ESTACION_ALMACEN = "pallet_transit4"
-
-    MAPEO_AGVS = {
-        "AGV_01": "agv_01",
-        "AGV_02": "agv_02",
-        "AGV_03": "agv_03",
-        "AGV_04": "agv_04",
-        "AGV_05": "agv_05",
-    }
-    ESTACIONES_SUMINISTRO = {
-        "COOKIE_1": "entrada_material_cookie_1",
-        "COOKIE_2": "entrada_material_cookie_2",
-        "COOKIE_3": "entrada_material_cookie_3",
-        "CHOCOLATE": "entrada_material_chocolate",
-        "WAFER": "entrada_material_wafer",
-    }
-
-    ESTACIONES_PRODUCTO_TERMINADO = {
-        "COOKIE_1": "fin_linea_cookie_1",
-        "COOKIE_2": "fin_linea_cookie_2",
-        "COOKIE_3": "fin_linea_cookie_3",
-        "CHOCOLATE": "fin_linea_chocolate",
-        "WAFER": "fin_linea_wafer",
-    }
-
-    def __init__(self, habilitar_flexsim=True):
-        self.agvs = []
-        self.solicitudes = []
-        self.misiones = []
+    def __init__(self):
         self.grafo = {}
-        self.flexsim = FlexSimCliente() if habilitar_flexsim else None
-        self.agvs_activos = None  # None conserva el comportamiento manual.
-        self.asignacion_automatica = True
-        self.observador_misiones = None
         self.ahora = datetime.now
-        self.reservas_ciclo = {}  # AGV -> ciclo; abarca ambas piernas y su transición.
-
         self.construir_red()
-
-    def resolver_nodos_solicitud(self, solicitud):
-
-        # SUMINISTRO: almacén -> entrada de la línea
-        if solicitud.origen == "ALMACEN":
-            origen = self.resolver_nodo("ALMACEN")
-
-            destino = self.NODOS_SUMINISTRO[
-                solicitud.destino
-            ]
-
-        # PRODUCTO TERMINADO: salida de la línea -> almacén
-        elif solicitud.destino == "ALMACEN":
-            origen = self.NODOS_PRODUCTO_TERMINADO[
-                solicitud.origen
-            ]
-
-            destino = self.resolver_nodo("ALMACEN")
-
-        else:
-            raise ValueError(
-                "La solicitud debe iniciar o terminar en ALMACEN."
-            )
-
-        return origen, destino
 
     # ---------------------------------------------------------
     # RED / GRAFO
@@ -111,9 +38,7 @@ class GestorFlota:
         )
 
         if not ruta.exists():
-            raise FileNotFoundError(
-                "Falta data/red_agv_grafo_actualizado.json"
-            )
+            raise FileNotFoundError("Falta data/red_agv_grafo_actualizado.json")
 
         with open(ruta, "r", encoding="utf-8") as archivo:
             datos = json.load(archivo)
@@ -126,14 +51,10 @@ class GestorFlota:
             destino = arista["destino"]
             distancia = float(arista["distancia_m"])
 
-            self.grafo[origen].append(
-                (destino, distancia)
-            )
+            self.grafo[origen].append((destino, distancia))
 
             if arista["bidireccional"]:
-                self.grafo[destino].append(
-                    (origen, distancia)
-                )
+                self.grafo[destino].append((origen, distancia))
 
     def resolver_nodo(self, ubicacion):
         if ubicacion in self.grafo:
@@ -142,40 +63,46 @@ class GestorFlota:
         if ubicacion in self.MAPEO_UBICACIONES:
             return self.MAPEO_UBICACIONES[ubicacion]
 
-        raise ValueError(
-            f"No existe mapeo para {ubicacion}"
-        )
+        raise ValueError(f"No existe mapeo para {ubicacion}")
 
-    def resolver_agv_flexsim(self, id_agv):
-        if id_agv not in self.MAPEO_AGVS:
-            raise ValueError(
-                f"{id_agv} no existe fisicamente en FlexSim"
-            )
+    def obtener_ruta(self, origen, destino):
+        """Ruta mínima por distancia usando Dijkstra."""
+        origen = self.resolver_nodo(origen)
+        destino = self.resolver_nodo(destino)
 
-        return self.MAPEO_AGVS[id_agv]
+        distancias = {nodo: float("inf") for nodo in self.grafo}
+        anteriores = {nodo: None for nodo in self.grafo}
+        distancias[origen] = 0
+        pendientes = [(0, origen)]
 
-    # ---------------------------------------------------------
-    # REGISTRO
-    # ---------------------------------------------------------
+        while pendientes:
+            distancia_actual, nodo_actual = heapq.heappop(pendientes)
 
-    def registrar_agv(self, agv):
-        self.agvs.append(agv)
+            if distancia_actual > distancias[nodo_actual]:
+                continue
 
-    def configurar_flota_activa(self, cantidad):
-        if cantidad not in (2, 3, 4, 5):
-            raise ValueError("La flota activa debe ser 2, 3, 4 o 5.")
-        activos = {f"AGV_{i:02d}" for i in range(1, cantidad + 1)}
-        if not activos <= {agv.id_agv for agv in self.agvs}:
-            raise ValueError("Faltan AGV registrados con ubicación inicial conocida.")
-        if self.reservas_ciclo or any(a.mision_actual is not None for a in self.agvs):
-            raise ValueError("No se puede cambiar la flota con misiones reservadas o activas.")
-        self.agvs_activos = activos
+            if nodo_actual == destino:
+                break
 
-    def agv_activo(self, agv):
-        return self.agvs_activos is None or agv.id_agv in self.agvs_activos
+            for vecino, distancia in self.grafo[nodo_actual]:
+                nueva_distancia = distancia_actual + distancia
 
-    def registrar_solicitud(self, solicitud):
-        self.solicitudes.append(solicitud)
+                if nueva_distancia < distancias[vecino]:
+                    distancias[vecino] = nueva_distancia
+                    anteriores[vecino] = nodo_actual
+                    heapq.heappush(pendientes, (nueva_distancia, vecino))
+
+        if distancias[destino] == float("inf"):
+            raise ValueError(f"No existe ruta entre {origen} y {destino}")
+
+        ruta = []
+        actual = destino
+        while actual is not None:
+            ruta.append(actual)
+            actual = anteriores[actual]
+        ruta.reverse()
+
+        return ruta, distancias[destino]
 
     # ---------------------------------------------------------
     # PRIORIDAD DE SOLICITUDES
@@ -187,574 +114,5 @@ class GestorFlota:
             PrioridadSolicitud.NORMAL: 10,
             PrioridadSolicitud.ALTA: 20,
         }
-
-        minutos = (
-            self.ahora() - solicitud.fecha_creacion
-        ).total_seconds() / 60
-
+        minutos = (self.ahora() - solicitud.fecha_creacion).total_seconds() / 60
         return puntos[solicitud.prioridad] + minutos
-
-    # ---------------------------------------------------------
-    # DIJKSTRA
-    # ---------------------------------------------------------
-
-    def obtener_ruta(self, origen, destino):
-        origen = self.resolver_nodo(origen)
-        destino = self.resolver_nodo(destino)
-
-        distancias = {
-            nodo: float("inf")
-            for nodo in self.grafo
-        }
-
-        anteriores = {
-            nodo: None
-            for nodo in self.grafo
-        }
-
-        distancias[origen] = 0
-
-        pendientes = [
-            (0, origen)
-        ]
-
-        while pendientes:
-            distancia_actual, nodo_actual = heapq.heappop(
-                pendientes
-            )
-
-            if distancia_actual > distancias[nodo_actual]:
-                continue
-
-            if nodo_actual == destino:
-                break
-
-            for vecino, distancia in self.grafo[nodo_actual]:
-                nueva_distancia = (
-                    distancia_actual + distancia
-                )
-
-                if nueva_distancia < distancias[vecino]:
-                    distancias[vecino] = nueva_distancia
-                    anteriores[vecino] = nodo_actual
-
-                    heapq.heappush(
-                        pendientes,
-                        (nueva_distancia, vecino)
-                    )
-
-        if distancias[destino] == float("inf"):
-            raise ValueError(
-                f"No existe ruta entre {origen} y {destino}"
-            )
-
-        ruta = []
-        actual = destino
-
-        while actual is not None:
-            ruta.append(actual)
-            actual = anteriores[actual]
-
-        ruta.reverse()
-
-        return ruta, distancias[destino]
-
-    def obtener_distancia(self, origen, destino):
-        return self.obtener_ruta(
-            origen,
-            destino
-        )[1]
-
-    # ---------------------------------------------------------
-    # DISTANCIA DE MISIÓN
-    # ---------------------------------------------------------
-
-    def calcular_distancia_mision(
-        self,
-        agv,
-        solicitud
-    ):
-        origen_mision, destino_mision = (
-            self.resolver_nodos_solicitud(solicitud)
-        )
-
-        distancia_agv_origen = self.obtener_distancia(
-            agv.ubicacion,
-            origen_mision
-        )
-
-        distancia_origen_destino = self.obtener_distancia(
-            origen_mision,
-            destino_mision
-        )
-
-        return (
-            distancia_agv_origen
-            + distancia_origen_destino
-        )
-
-    # ---------------------------------------------------------
-    # SELECCIÓN DEL MEJOR AGV
-    # ---------------------------------------------------------
-
-    def calcular_score_agv(
-        self,
-        agv,
-        solicitud
-    ):
-        distancia = self.calcular_distancia_mision(
-            agv,
-            solicitud
-        )
-
-        penalizacion_bateria = (
-            100 - agv.bateria
-        ) * 0.1
-
-        return (
-            distancia
-            + penalizacion_bateria
-        )
-
-    def buscar_mejor_agv(
-        self,
-        solicitud
-    ):
-        mejor_agv = None
-        mejor_score = None
-
-        for agv in self.agvs:
-
-            # Solo AGV disponibles.
-            if not self.agv_activo(agv):
-                continue
-            reserva = self.reservas_ciclo.get(agv.id_agv)
-            retorno_reservado = (
-                reserva is not None and reserva == solicitud.id_ciclo
-                and solicitud.agv_reservado == agv.id_agv
-            )
-            if solicitud.agv_reservado and not retorno_reservado:
-                continue
-            if reserva is not None and not retorno_reservado:
-                continue
-            if agv.mision_actual is not None:
-                continue
-            if not agv.esta_disponible() and not (retorno_reservado and agv.estado == EstadoAGV.ASIGNADO):
-                continue
-
-            # Debe existir físicamente en FlexSim.
-            if agv.id_agv not in self.MAPEO_AGVS:
-                continue
-
-            # Debe soportar el peso del pallet.
-            if not agv.puede_transportar(
-                solicitud.peso
-            ):
-                continue
-
-            # Comprobamos que realmente exista una ruta.
-            try:
-                distancia = self.calcular_distancia_mision(
-                    agv,
-                    solicitud
-                )
-
-            except ValueError:
-                # Este AGV no puede realizar esta misión
-                # debido a la dirección de la red.
-                continue
-
-            # Comprobamos autonomía/batería.
-            if not agv.puede_completar_mision(
-                distancia + solicitud.distancia_retorno
-            ):
-                continue
-
-            penalizacion_bateria = (
-                100 - agv.bateria
-            ) * 0.1
-
-            score = (
-                distancia
-                + penalizacion_bateria
-            )
-
-            if (
-                mejor_score is None
-                or score < mejor_score
-            ):
-                mejor_score = score
-                mejor_agv = agv
-
-        return mejor_agv
-
-    # ---------------------------------------------------------
-    # ASIGNACIÓN DE SOLICITUDES
-    # ---------------------------------------------------------
-
-    def asignar_solicitud(
-        self,
-        solicitud
-    ):
-        if (
-            solicitud.estado
-            != EstadoSolicitud.PENDIENTE
-        ):
-            return None
-
-        agv = self.buscar_mejor_agv(
-            solicitud
-        )
-
-        if agv is None:
-            return None
-
-        mision = Mision(
-            id_mision=(
-                f"M-{len(self.misiones) + 1:03d}"
-            ),
-            solicitud=solicitud,
-            agv=agv,
-        )
-
-        solicitud.estado = (
-            EstadoSolicitud.ASIGNADA
-        )
-
-        agv.estado = (
-            EstadoAGV.ASIGNADO
-        )
-
-        agv.mision_actual = mision
-        if solicitud.id_ciclo is not None:
-            self.reservas_ciclo[agv.id_agv] = solicitud.id_ciclo
-
-        self.misiones.append(
-            mision
-        )
-
-        return mision
-
-    # ---------------------------------------------------------
-    # COLA DE SOLICITUDES
-    # ---------------------------------------------------------
-
-    def obtener_solicitudes_pendientes_ordenadas(
-        self
-    ):
-        pendientes = [
-            solicitud
-            for solicitud in self.solicitudes
-            if solicitud.estado
-            == EstadoSolicitud.PENDIENTE
-        ]
-
-        pendientes.sort(
-            key=self.calcular_score_solicitud,
-            reverse=True
-        )
-
-        return pendientes
-
-    # ---------------------------------------------------------
-    # BÚSQUEDA DE MISIÓN
-    # ---------------------------------------------------------
-
-    def buscar_mision(
-        self,
-        id_mision
-    ):
-        for mision in self.misiones:
-            if mision.id_mision == id_mision:
-                return mision
-
-        return None
-
-    # ---------------------------------------------------------
-    # INICIAR MISIÓN EN FLEXSIM
-    # ---------------------------------------------------------
-
-    def iniciar_mision(
-        self,
-        id_mision
-    ):
-        mision = self.buscar_mision(
-            id_mision
-        )
-
-        if mision is None:
-            return None
-
-        if mision.estado.value != "CREADA":
-            return mision
-
-        agv_flexsim = self.resolver_agv_flexsim(
-            mision.agv.id_agv
-        )
-
-        origen, destino = self.resolver_nodos_solicitud(
-            mision.solicitud
-        )
-
-
-        # SUMINISTRO: almacén -> línea
-        if mision.solicitud.origen == "ALMACEN":
-            estacion_origen = self.ESTACION_ALMACEN
-
-            estacion_destino = self.ESTACIONES_SUMINISTRO[
-                mision.solicitud.destino
-            ]
-
-        # PRODUCTO TERMINADO: línea -> almacén
-        elif mision.solicitud.destino == "ALMACEN":
-            estacion_origen = self.ESTACIONES_PRODUCTO_TERMINADO[
-                mision.solicitud.origen
-            ]
-
-            estacion_destino = self.ESTACION_ALMACEN
-
-        else:
-            raise ValueError(
-                "La misión debe iniciar o terminar en ALMACEN."
-            )
-        estacion_origen = mision.solicitud.estacion_origen or estacion_origen
-        estacion_destino = mision.solicitud.estacion_destino or estacion_destino
-        print(
-            "MISION ENVIADA:",
-            agv_flexsim,
-            origen,
-            destino,
-            mision.solicitud.id_pallet,
-            estacion_origen,
-            estacion_destino
-        )
-
-        try:
-            respuesta = self.flexsim.ejecutar_mision(
-                agv_flexsim,
-                origen,
-                destino,
-                mision.solicitud.id_pallet,
-                estacion_origen,
-                estacion_destino,
-            )
-
-        except OSError:
-            if self.observador_misiones is not None:
-                # En escenario una respuesta perdida es ambigua: no liberar ni reenviar.
-                raise
-            mision.solicitud.estado = (
-                EstadoSolicitud.PENDIENTE
-            )
-
-            mision.agv.estado = (
-                EstadoAGV.DISPONIBLE
-            )
-
-            mision.agv.mision_actual = None
-
-            self.misiones.remove(
-                mision
-            )
-
-            raise
-
-        if respuesta != "OK|MISION_INICIADA":
-            if self.observador_misiones is not None:
-                raise RuntimeError(f"Respuesta de misión no confirmada: {respuesta}")
-            mision.solicitud.estado = (
-                EstadoSolicitud.PENDIENTE
-            )
-
-            mision.agv.estado = (
-                EstadoAGV.DISPONIBLE
-            )
-
-            mision.agv.mision_actual = None
-
-            self.misiones.remove(
-                mision
-            )
-
-            raise RuntimeError(
-                f"FlexSim rechazo la mision: {respuesta}"
-            )
-
-        mision.iniciar()
-        if self.observador_misiones is not None:
-            self.observador_misiones("iniciada", mision)
-
-        return mision
-
-    # ---------------------------------------------------------
-    # CONSULTAR ESTADO REAL EN FLEXSIM
-    # ---------------------------------------------------------
-
-    def actualizar_misiones_flexsim(
-        self
-    ):
-        hubo_cambios = False
-
-        for mision in list(
-            self.misiones
-        ):
-
-            if (
-                mision.estado.value
-                != "EN_PROCESO"
-            ):
-                continue
-
-            try:
-                respuesta = self.flexsim.obtener_estado(
-                    self.resolver_agv_flexsim(
-                        mision.agv.id_agv
-                    )
-                )
-
-            except OSError:
-                if self.observador_misiones is not None:
-                    raise
-                continue
-
-            if respuesta not in ("OK|LIBRE", "OK|OCUPADO"):
-                if self.observador_misiones is not None:
-                    raise RuntimeError(f"Estado de FlexSim no válido: {respuesta}")
-                continue
-
-            if respuesta == "OK|LIBRE":
-
-                resultado = self.completar_mision(
-                    mision.id_mision
-                )
-
-                if resultado is None:
-                    continue
-
-                _, nuevas_misiones = resultado
-
-                for nueva_mision in nuevas_misiones:
-                    self.iniciar_mision(
-                        nueva_mision.id_mision
-                    )
-
-                hubo_cambios = True
-
-        return hubo_cambios
-
-    # ---------------------------------------------------------
-    # COMPLETAR MISIÓN
-    # ---------------------------------------------------------
-
-    def completar_mision(
-        self,
-        id_mision
-    ):
-        mision = self.buscar_mision(
-            id_mision
-        )
-
-        if mision is None:
-            return None
-
-        # Calculamos la distancia antes de cambiar
-        # la ubicación del AGV al destino.
-        distancia = self.calcular_distancia_mision(
-            mision.agv,
-            mision.solicitud,
-        )
-
-        mision.completar()
-
-        _, destino_fisico = self.resolver_nodos_solicitud(
-            mision.solicitud
-        )
-
-        mision.agv.ubicacion = destino_fisico
-
-        mision.agv.consumir_bateria(
-            distancia
-        )
-        if mision.agv.id_agv in self.reservas_ciclo:
-            mision.agv.estado = EstadoAGV.ASIGNADO
-        if self.observador_misiones is not None:
-            self.observador_misiones("completada", mision)
-
-        if (mision.agv.necesita_recarga() and mision.agv.mision_actual is None
-                and mision.agv.id_agv not in self.reservas_ciclo):
-            mision.agv.estado = (
-                EstadoAGV.CARGANDO
-            )
-
-            mision.agv.hora_inicio_recarga = (
-                datetime.now()
-            )
-
-        nuevas_misiones = (
-            self.procesar_solicitudes_pendientes() if self.asignacion_automatica else []
-        )
-
-        return (
-            mision,
-            nuevas_misiones
-        )
-
-    # ---------------------------------------------------------
-    # PROCESAR SOLICITUDES PENDIENTES
-    # ---------------------------------------------------------
-
-    def procesar_solicitudes_pendientes(
-        self
-    ):
-        creadas = []
-
-        solicitudes = (
-            self.obtener_solicitudes_pendientes_ordenadas()
-        )
-
-        for solicitud in solicitudes:
-
-            mision = self.asignar_solicitud(
-                solicitud
-            )
-
-            if mision is not None:
-                creadas.append(
-                    mision
-                )
-
-        return creadas
-
-    # ---------------------------------------------------------
-    # RECARGA
-    # ---------------------------------------------------------
-
-    def finalizar_recarga(
-        self,
-        id_agv
-    ):
-        for agv in self.agvs:
-
-            if agv.id_agv != id_agv:
-                continue
-
-            if agv.estado != EstadoAGV.CARGANDO:
-                raise ValueError(
-                    f"El AGV {id_agv} no esta cargando"
-                )
-
-            agv.recargar()
-            agv.hora_inicio_recarga = None
-
-            nuevas_misiones = (
-                self.procesar_solicitudes_pendientes() if self.asignacion_automatica else []
-            )
-
-            return (
-                agv,
-                nuevas_misiones
-            )
-
-        raise ValueError(
-            f"No existe el AGV {id_agv}"
-        )

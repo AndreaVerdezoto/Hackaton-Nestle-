@@ -32,10 +32,6 @@ def mostrar_nestor_flotante(resultado_actual=_SIN_RESULTADO_EXPLICITO, escenario
             _mostrar_burbuja("abrir_nestor", _abrir_nestor)
 
 
-def mostrar_nestor(resultado_actual=_SIN_RESULTADO_EXPLICITO, escenario_id=None):
-    mostrar_nestor_flotante(resultado_actual, escenario_id)
-
-
 def _resultado_desde_session_state():
     historial = st.session_state.get("escenarios_simulados") or []
     if not historial:

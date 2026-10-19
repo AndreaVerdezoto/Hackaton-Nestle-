@@ -1,4 +1,5 @@
 """Planificación simple de recargas sobre el reloj del simulador existente."""
+from app.models.agv import EstadoAGV
 from app.models.bateria import MODELO_BATERIA
 
 
@@ -34,7 +35,7 @@ class BateriaFlota:
         opciones = []
         for nodo, libre in self.libres.items():
             try:
-                viaje = self.trayecto(self.vehiculos[agv]["posicion"], nodo)
+                viaje = self.trayecto(self.vehiculos[agv].ubicacion, nodo)
             except ValueError:
                 continue
             llegada = t + viaje["tiempo_s"]
@@ -46,21 +47,24 @@ class BateriaFlota:
             raise ValueError(f"{agv}: no puede alcanzar/esperar un cargador con la batería disponible.")
         _, nodo, viaje, llegada, inicio, nivel = min(opciones, key=lambda x: (x[0], x[1]))
         fin = inicio + self.modelo.carga_restante_s(nivel)
-        self.recargas[agv].append({"agv": agv, "origen": self.vehiculos[agv]["posicion"],
+        self.recargas[agv].append({"agv": agv, "origen": self.vehiculos[agv].ubicacion,
             "destino": nodo, "inicio_s": t, "llegada_s": llegada, "inicio_carga_s": inicio,
             "fin_s": fin, "viaje": viaje, "bateria_inicio": self.nivel(agv, t), "bateria_conexion": nivel})
         self.libres[nodo] = fin
-        self.vehiculos[agv]["mision"] = "RECARGA"
+        self.vehiculos[agv].estado = EstadoAGV.CARGANDO
+        self.vehiculos[agv].mision_actual = "RECARGA"
         self.programar(fin, "fin_recarga", agv)
 
     def evento(self, tipo, agv, t, seguir):
         if tipo == "reserva_bateria":
-            if seguir and self.vehiculos[agv]["mision"] is None and self.nivel(agv, t) <= self.modelo.reserva_pct + 1e-8:
+            if (seguir and self.vehiculos[agv].esta_disponible()
+                    and self.modelo.necesita_recarga(self.nivel(agv, t))):
                 self.recargar(agv, t)
             return True
         if tipo == "fin_recarga":
-            self.vehiculos[agv]["posicion"] = self.recargas[agv][-1]["destino"]
-            self.vehiculos[agv]["mision"] = None
+            self.vehiculos[agv].ubicacion = self.recargas[agv][-1]["destino"]
+            self.vehiculos[agv].estado = EstadoAGV.DISPONIBLE
+            self.vehiculos[agv].mision_actual = None
             if seguir:
                 self.programar(t + self.modelo.uso_restante_s(100), "reserva_bateria", agv)
             return True

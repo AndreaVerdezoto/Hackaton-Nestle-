@@ -78,22 +78,15 @@ def estado_en_instante(resultado, tiempo_s, mapa=None):
                     item["pallet_asignado"] = tarea["id_pallet"]
                     item["tipo_mision"] = tarea["tipo"]
                     local = t-tarea["inicio_s"]
-                    if tarea["tipo"] == "suministro":
-                        fases = [("VIAJANDO_A_RECOGIDA", tarea["vacio"]["tiempo_s"], "vacio"),
-                                 ("CARGANDO_MATERIAL", tarea["carga_s"], None),
-                                 ("SUMINISTRANDO_LINEA", tarea["cargado"]["tiempo_s"], "cargado"),
-                                 ("DESCARGANDO_MATERIAL", tarea["descarga_s"], None)]
-                        estados_con_carga = {"CARGANDO_MATERIAL", "SUMINISTRANDO_LINEA", "DESCARGANDO_MATERIAL"}
-                    else:
-                        fases = [("VIAJANDO_A_RECOGIDA", tarea["vacio"]["tiempo_s"], "vacio"),
-                                 ("CARGANDO_PALLET", tarea["carga_s"], None),
-                                 ("TRANSPORTANDO", tarea["cargado"]["tiempo_s"], "cargado"),
-                                 ("DESCARGANDO_PALLET", tarea["descarga_s"], None)]
-                        estados_con_carga = {"CARGANDO_PALLET", "TRANSPORTANDO", "DESCARGANDO_PALLET"}
+                    fases = [("VIAJANDO_A_RECOGIDA", tarea["vacio"]["tiempo_s"], "vacio"),
+                             ("CARGANDO_PALLET", tarea["carga_s"], None),
+                             ("TRANSPORTANDO", tarea["cargado"]["tiempo_s"], "cargado"),
+                             ("DESCARGANDO_PALLET", tarea["descarga_s"], None)]
+                    estados_con_carga = {"CARGANDO_PALLET", "TRANSPORTANDO", "DESCARGANDO_PALLET"}
                     for estado, duracion, viaje in fases:
                         if local < duracion:
                             item["estado"] = estado
-                            es_descarga = estado in ("DESCARGANDO_PALLET", "DESCARGANDO_MATERIAL")
+                            es_descarga = estado == "DESCARGANDO_PALLET"
                             item["posicion"] = posicion(tarea[viaje], local, p, mapa) if viaje else nodos[tarea["destino"] if es_descarga else tarea["origen"]]
                             item["ruta"] = tarea[viaje]["ruta"] if viaje else []
                             item["pallet"] = tarea["id_pallet"] if estado in estados_con_carga else "—"
@@ -113,7 +106,7 @@ def estado_en_instante(resultado, tiempo_s, mapa=None):
         item["tiempo_libre_s"] = max(0, t-item["tiempo_ocupado_s"]-no_disponible)
         item["distancia_vacia_m"] = sum(distancia_en_tiempo(m["vacio"],t-m["inicio_s"],p) for m in propios)
         item["distancia_vacia_m"] += sum(distancia_en_tiempo(r["viaje"],t-r["inicio_s"],p) for r in recargas)
-        item["distancia_cargada_m"] = sum(distancia_en_tiempo(m["cargado"],t-m["inicio_s"]-m["vacio"]["tiempo_s"]-m["espera_disponibilidad_s"]-m["carga_s"],p) for m in propios)
+        item["distancia_cargada_m"] = sum(distancia_en_tiempo(m["cargado"],t-m["inicio_s"]-m["vacio"]["tiempo_s"]-m["carga_s"],p) for m in propios)
         item["distancia_total_m"] = item["distancia_vacia_m"]+item["distancia_cargada_m"]
         flota.append(item)
     pendientes = [m for m in movimientos if m["llegada_s"] <= t < m["inicio_s"]]

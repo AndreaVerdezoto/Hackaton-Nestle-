@@ -305,14 +305,6 @@ class Nestor:
             return None
         return max(utilizacion_por_agv.items(), key=lambda item: (item[1], item[0]))
 
-    @staticmethod
-    def _fmt(valor):
-        if valor is None:
-            return "dato no disponible"
-        if isinstance(valor, float) and not valor.is_integer():
-            return f"{valor:.1f}"
-        return str(int(valor)) if isinstance(valor, float) else str(valor)
-
     def _misiones(self, valor):
         if valor is None:
             return "dato no disponible"
@@ -356,7 +348,7 @@ class Nestor:
             "ESPERA_ELEVADA": "Revisar la secuencia de llegadas y la disponibilidad de AGV en los picos de espera.",
             "UTILIZACION_ALTA": "Validar si la flota conserva holgura antes de aumentar la demanda del turno.",
             "BATERIA_BAJA": "Revisar el plan de recarga y la disponibilidad de cargadores.",
-            "DESPLAZAMIENTO_VACIO_ALTO": "Conviene revisar los reposicionamientos entre orígenes y destinos.",
+            "DESPLAZAMIENTO_VACIO_ALTO": "Conviene revisar los desplazamientos vacíos de los AGV hacia los puntos de recogida.",
         }
         acciones = []
         for problema in problemas:

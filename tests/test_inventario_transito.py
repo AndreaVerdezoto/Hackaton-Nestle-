@@ -19,18 +19,6 @@ class InventarioTransitoTests(unittest.TestCase):
                     "inicio_s": 120.0,
                     "fin_s": 200.0,
                 },
-                {
-                    "numero": 7,
-                    "tipo": "suministro",
-                    "id_pallet": "PALLET_004",
-                    "id_ciclo": 4,
-                    "origen": "ControlPoint7",
-                    "destino": "ControlPoint23",
-                    "agv": "AGV_01",
-                    "llegada_s": 0.0,
-                    "inicio_s": 0.0,
-                    "fin_s": 50.0,
-                },
             ]
         }
 
